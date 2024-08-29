@@ -1,5 +1,6 @@
 import time
 import math
+import psutil
 
 '''
 
@@ -60,13 +61,10 @@ class node:
     
     def init_var(self):
         
-        self.next_ =None
         self.index = None
         self.finger_table=[]
         self.nodes_in_system = 0
         self.distroy = False 
-        self.breaking_time = 1.0
-        self.start_breaking = 0.0
         self.tasks=[]
         self.env = []
         self.ip = ''
@@ -75,7 +73,7 @@ class node:
         self.president = { 'ip': self.ip , 'port':self.port , 'index': self.index  }
         self.actions = {
             
-            'break'   :self.interrumpt ,
+            'hello' : self.hello ,
             'node_leaving': self.node_leaving ,
             'election': self.election ,
             'entry_node': self.entry_node ,
@@ -89,7 +87,49 @@ class node:
             
         }
         self.insertion_await = False
+        self.hello_await = False
+        self.auth_node = False
+        self.last_state = {
+            
+            'finger_table': self.finger_table,
+            'nodes_in_system': self.nodes_in_system,
+        }
+        
+        self.capacity =  psutil.virtual_memory().total  # Convert bytes
+        self.entry_node_info = { 'ip':'' , 'port':'' }
     
+    def hello( self , data ):
+        
+        if not self.answer_avaliabily():
+            return
+        
+        node= data['node']
+        if self.is_president():
+            self.hello_await = False
+            self.auth_node = True
+            self.entry_node( data=data )
+            
+            return
+        
+        if self.ip == node['ip'] and self.port == node['port']: # if node exisiting node is trying to insert , refuse it
+            self.send_data( ip=self.president['ip'] , port=self.president['port'] , data={
+                
+                'action': self.encode_action('exisitng_node'),
+                'node' : node
+                
+            } )
+            
+            return 
+            
+        sucessor_ip = self.finger_table[0]['ip']
+        sucessor_port = self.finger_table[0]['port']
+        self.send_data( ip=sucessor_ip , port=sucessor_port , data={
+                        'action': self.encode_action('hello') ,
+                        'node': node
+                        } 
+                            )
+        
+        
     def find_next(self):
         pass
         
@@ -99,18 +139,16 @@ class node:
         env['ip'] = ip
         env['port'] = port
         env['data'] = data
-        
-        if data.__contains__('node') and data['node'].__contains__('index') and data['node']['ip'] == '127.0.0.1' and data['node']['port'] == 1 and data['node']['index'] == 8:
-            print()
-            
+              
         self.env.append( env )
         
-    def interrumpt(self , data ):
+    def interrumpt( self ):
         
-        self.distroy = True
-        data = { 'action': self.encode_action('break') }
-        self.start_breaking = time.time()
-        self.broadcast( data=data )
+        self.distroy = True # block every request
+        #_________________________________step back to the last state_______________________________________
+        self.nodes_in_system = self.last_state['nodes_in_system'] 
+        self.finger_table = self.last_state['finger_table'] 
+        #_________________________________________________________________________
         
     def select_fowarding_node( self , target_index ):
         
@@ -137,7 +175,7 @@ class node:
         data = self.tasks[0]
         self.tasks.pop(0)
         
-        if self.distroy and time.time() - self.start_breaking < self.breaking_time :
+        if self.distroy and time.time() - self.start_breaking < self.breaking_time:
             return
     
         data_action = data['action']
@@ -161,15 +199,25 @@ class node:
     def node_leaving(self , data ):
         
         node = data['node']
+        self.interrumpt()
         
         data={ 'action': self.encode_action('node_leaving') , 'node': node  }
-            
+        self.remove_node( node=node ) # remove missing node
+        self.broadcast(data=data)
+        
         if node['ip'] == self.president['ip'] and node['port'] == self.president['port']: # verify the missing node is the president
             self.start_election()
-            return
-            
-        self.broadcast(data=data)
-             
+        
+    def remove_node( self , node ):
+        
+        remove_ip = node['ip']
+        remove_port = node['port']
+        remove_index = node['index']
+        
+        for index,element in enumerate(self.finger_table):
+            if element['ip'] == remove_ip and element['port'] == remove_port and element['index'] == remove_index:
+                self.finger_table.pop(index)        
+    
     def election( self , data ):
         
         task_load = data['task_load']
@@ -177,7 +225,7 @@ class node:
         ip = node['ip']
         port = node['port']
         
-        if len(self.tasks) > task_load: # taskless node is elected has president
+        if len(self.tasks) / self.capacity > task_load: # taskless node is elected has president
             self.president = { 'ip': ip , 'port': port }
             self.broadcast( data=data )
     
@@ -201,6 +249,7 @@ class node:
     def entry_node(self , data ):
         
         node = data['node']
+                
         if not self.entrance_condition(node=node):
             return
         
@@ -217,8 +266,10 @@ class node:
                 'target_index':self.nodes_in_system - 1 , # search for the last index
                 'node': node } # insert new node at penultimum ring node as its sucessor
             
-            self.send_data( ip=ip , port=port , data=data ) # send data to last link of president finger table
             self.insertion_await = True
+            self.auth_node = False
+            self.send_data( ip=ip , port=port , data=data ) # send data to last link of president finger table
+            self.entry_node_info = node
         
         # ask every link node to fix its finger table
         data = { 'action': self.encode_action('entry_node') , 'node': node }
@@ -233,20 +284,39 @@ class node:
             (
                 node.__contains__('index') and
                 node['index'] < self.nodes_in_system # if the my count is higher then entry node index , I refuse it
-            ) or self.insertion_await # president can't no be waitting for a node insertion
+            ) or self.insertion_await or # president can't no be waitting for a node insertion
+             self.distroy or # if falling node
+             self.hello_await # waitting for an entry node to be authenticated
         ): 
-            
-            if self.is_president():
-                 self.send_data( 
+                
+            if self.is_president() and \
+                (
+                    node['ip'] != self.entry_node_info['ip'] and
+                    node['port'] != self.entry_node_info['port']
+                ):
+                
+                 self.send_data(
                                     ip=node['ip'] ,
                                     port=node['port'] ,
                                     data={
                                     'action': self.encode_action('retry') 
-                                    } 
+                                    }
                                 )
             
             return False
-             
+        
+        # if node is not autheticated by the president, forward authentication to sucessor
+        if self.is_president() and not self.auth_node:
+            sucessor_ip = self.finger_table[0]['ip']
+            sucessor_port = self.finger_table[0]['port']
+            self.hello_await = True
+            self.send_data( ip=sucessor_ip , port=sucessor_port , data={
+                        'action': self.encode_action('hello') ,
+                        'node':node 
+                        }
+                            )
+            return False
+        
         return True
     
     def fix_finger_table(self , node ):
@@ -255,9 +325,18 @@ class node:
         if not self.answer_avaliabily():
             return
         
+        self.up_last_state()
         self.nodes_in_system += 1
         if self.index + 2 ** ( len(self.finger_table) + 1 ) == self.nodes_in_system:
             self.finger_table.append( { 'ip': node['ip'] , 'port': node['port'] , 'index': self.nodes_in_system - 1 } )
+    
+    def up_last_state(self):
+        
+        self.last_state = {
+            
+            'finger_table': self.finger_table,
+            'nodes_in_system': self.nodes_in_system,
+        }
     
     def retry(self , data ): # retry to connect to system
         
@@ -314,7 +393,7 @@ class node:
     
     def inserted_node(self , data ):
         
-        if self.president['ip'] != self.ip or self.president['port'] != self.port: # in case the request is forwarded to a node that is not a president
+        if not self.is_president(): # in case the request is forwarded to a node that is not a president
             self.send_data( self.president['ip'] , self.president['port'] , data=data )
         
         if data['sucessor'] is None: # in case a request node is already in system
@@ -330,14 +409,15 @@ class node:
             'index': data['index'] ,
         }
         
-        self.send_data( new_node['ip'] , new_node['port'] , data=data )
+        self.send_data( new_node['ip'] , new_node['port'] , data=data ) # ask entry node to update sucessor
     
     def wellcome(self , data ):
         
         if self.insertion_await:
             self.insertion_await = False
+            self.entry_node_info = { 'ip':'' , 'port':'' }
             
-    def alive(self , data ): # this signal is a request from predecessor
+    def alive(self , data ): # this signal is a request from predecesor
         
         node = data['node']
         self.send_data( node['ip'] , node['port'] , data={ 'action': self.encode_action('on') } )
@@ -345,26 +425,25 @@ class node:
     def on( self , data ): # this signal means that sucessor is alive
         
         if len(self.node_response) > 0:
-            self.node_response.pop( 0 )
+            self.node_response = None
     
     def detect_falling_nodes( self ):
         
-        response_time = 1.0
-        if len(self.node_response) > 0 and time.time() - self.node_response[0]['time'] >= response_time  : # faulty node found
-            
+        response_time = 1.0 * self.nodes_in_system
+        if self.node_response is not None and time.time() - self.node_response[0]['time'] >= response_time: # faulty node found
             m = self.node_response[0]['node']
             self.node_leaving( m )
             
-        node = self.finger_table[0]
-        self.node_response.append({ 'node':node , 'time': time.time() }) # add to list 'wait for response'
-        self.send_data( node[0]['ip'] , node['port'] , data={ 'action': self.encode_action('alive') } ) # send alive signal to sucessor
+        sucessor = self.finger_table[0]
+        self.node_response= { 'node':sucessor , 'time': time.time() } # add sucessor to 'wait for response'
+        self.send_data( sucessor[0]['ip'] , sucessor['port'] , data={ 'action': self.encode_action('alive') } ) # send alive signal to sucessor
     
     def encode_action(self , action ):
         
         actions={
             'election': 0 ,
             'alive': 1 ,
-            'break'   : 2 ,
+            'hello': 2 ,
             'node_leaving': 3,
             'entry_node' : 4,
             'insert_node': 5 ,
@@ -382,7 +461,7 @@ class node:
         actions={
             0: 'election',
             1: 'alive',
-            2: 'break',
+            2: 'hello' ,
             3: 'node_leaving',
             4: 'entry_node',
             5: 'insert_node',

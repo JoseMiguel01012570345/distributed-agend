@@ -4,6 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import os
 
+os.system('cls')
 def enviroment():
     
     chord_system = []
@@ -15,13 +16,14 @@ def enviroment():
     first_node.finger_table.append( { 'ip': first_node.ip , 'port':first_node.port , 'index':first_node.index } )
     first_node.nodes_in_system += 1
     
-    chord_system.append(first_node)    
+    chord_system.append(first_node)
     
     # setting president
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    entry_time = [ i for i in range(1,150) ]
+    server_limit = 150
+    entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
     leaving_time = []
@@ -61,8 +63,8 @@ def enviroment():
             break
         
         time += 1
-        if time >= 113:
-            pass
+        print(time)
+        
         
     update_graph( nodes=chord_system , time=time )
     
