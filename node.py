@@ -2,6 +2,7 @@ import time
 import math
 import psutil
 import sys
+import numpy as np
 
 '''
 
@@ -71,6 +72,7 @@ class node:
         self.ip = ''
         self.port = 0
         self.president = { 'ip': self.ip , 'port':self.port , 'index': self.index  }
+        self.sucessor = {}
         self.actions = {
             
             'hello' : self.hello ,
@@ -90,7 +92,7 @@ class node:
             'find_index': self.find_index ,
             'completed': self.node_stable ,
         }
-        self.num_stabilized_nodes = 0
+        self.num_stabilized_nodes = 1
         self.insertion_await = False
         self.hello_await = False
         self.auth_node = False
@@ -99,7 +101,7 @@ class node:
             'finger_table': self.finger_table,
             'nodes_in_system': self.nodes_in_system,
         }
-        self.stabilization = False
+        self.stabilization = True
         self.capacity =  psutil.virtual_memory().total  # Convert bytes
         self.entry_node_info = { 'ip':'' , 'port':'' }
     
@@ -116,6 +118,9 @@ class node:
             
             return
         
+        if not self.is_president(): # new stabilization is requeried for the entry node
+            self.stabilization = False 
+        
         if self.ip == node['ip'] and self.port == node['port']: # if node exisiting node is trying to insert , refuse it
             self.send_data( ip=self.president['ip'] , port=self.president['port'] , data={
                 
@@ -123,9 +128,8 @@ class node:
                 'msg' : 'deja la gracia' ,
                 
             } )
-            
             return 
-            
+        
         sucessor_ip = self.finger_table[0]['ip']
         sucessor_port = self.finger_table[0]['port']
         self.send_data( ip=sucessor_ip , port=sucessor_port , data={
@@ -148,9 +152,9 @@ class node:
             
             'action' : self.encode_action('index_response') ,
             'node':{
-            'index': self.index ,
             'ip' : self.ip ,
             'port': self.port ,
+            'index': self.index ,
             }
         }
         self.send_data( ip=origin['ip'] , port=origin['port'] , data=data )
@@ -164,21 +168,32 @@ class node:
         
         self.finger_table.append( node )
         
-        if self.check_finger_table():
+        if self.check_finger_table() and not self.is_president():
             self.stabilization_completed()
          
     def stabilize( self , data=None ):
         
-        if self.check_finger_table() and not self.is_president():
+        if self.stabilization : # if node is stable , do not forward stabilization
             return
         
+        if self.check_finger_table(): # otherwise check stability and foward stabilization instuction
+            self.stabilization_completed() # report stabilization
+            self.broadcast( data={ 'action': self.encode_action('stabilize') } )
+            return
+                
         self.stabilization = False
         self.needed_nodes= []
+        self.finger_table = [ self.sucessor ]
         
-        for i in math.log2( 1 , self.nodes_in_system):
-          
-            p = self.index + 2 ** (i-1)
-            if not any( [ item['index'] == p for item in self.finger_table ] ): # if 'p' index is not in finger table
+        i = 0
+        while i < int(math.log2(self.nodes_in_system)):
+            
+            i += 1
+            
+            p = int( self.index + 2 ** ( i- 1 ) ) % self.nodes_in_system
+            
+            if not any( [ item['index'] == p for item in self.finger_table ] ) and \
+                self.index != p: # if 'p' index is not in finger table
                 
                 self.needed_nodes.append(p)
                 self.find_index( data={ # find index p
@@ -190,19 +205,26 @@ class node:
                 } )
         
         self.broadcast( data={ 'action': self.encode_action('stabilize') } )
-                
+    
     def check_finger_table(self):
         # if there are missing nodes , then finger_table is not completed
-        if math.log2(self.nodes_in_system) > len(self.finger_table):
+        if int(math.log2(self.nodes_in_system)) > len(self.finger_table):
             return False
+        
+        if not self.is_president():
+            self.stabilization = True
+            
         return True
     
     def stabilization_completed(self):
+        
+        if self.is_president(): return
+        
         self.stabilization = True
         self.send_data(
             ip=self.president['ip'] ,
             port=self.president['port'] ,
-            data={ self.encode_action( 'completed' ) }
+            data={ 'action':self.encode_action( 'completed' ) }
         )
     
     def node_stable(self , data ):
@@ -210,7 +232,7 @@ class node:
         self.num_stabilized_nodes += 1
         if self.num_stabilized_nodes == self.nodes_in_system: # if all nodes are stable , president is stable
             self.stabilization = True
-        
+                
     def exiting_node( self , data ):
         input()
         print( data['msg'] )
@@ -234,20 +256,19 @@ class node:
         
     def select_fowarding_node( self , target_index ):
         
-        ip , port = None , None
-        if target_index <= self.index or target_index >= self.finger_table[-1]['index']:
-            
-            ip = self.finger_table[-1]['ip'] 
-            port = self.finger_table[-1]['port'] 
-            
-        elif self.index < target_index < self.finger_table[-1]['index']:
-            
-            for index,element in enumerate(self.finger_table):
-                
-                if element['index'] > target_index:
-                    return self.finger_table[ index - 1 ]['ip'] , self.finger_table[ index - 1 ]['port']
+        new_list = [ element for element in self.finger_table if element['index'] <= target_index ]
         
-        return ip , port
+        if len(new_list) == 0:
+            new_list = [ element for element in self.finger_table if element['index'] >= self.index ]
+        
+        best_index = 0
+        best_node = new_list[0]
+        for element in new_list:
+            if element['index'] >= best_index:
+                best_index = element['index']
+                best_node = element
+        
+        return best_node['ip'] , best_node['port']
     
     def answer_avaliabily(self):
         return not self.index is None
@@ -271,7 +292,9 @@ class node:
         node = data['node']
         self.index = data['index']
         self.finger_table.append(node)
+        self.sucessor = self.finger_table[0]
         self.nodes_in_system = self.index + 1
+        self.stabilization = False
         self.send_data( 
                        ip=self.president['ip'] ,
                        port=self.president['port'] ,
@@ -347,7 +370,6 @@ class node:
             
             data = { 
                 'action': self.encode_action('insert_node') ,
-                'index': self.nodes_in_system ,
                 'target_index':self.nodes_in_system - 1 , # search for the last index
                 'node': node } # insert new node at penultimum ring node as its sucessor
             
@@ -359,7 +381,7 @@ class node:
         # ask every link node to fix its finger table
         data = { 'action': self.encode_action('entry_node') , 'node': node }
         self.broadcast( data=data )
-        self.fix_finger_table( node=node )
+        self.backup_state()
     
     def entrance_condition( self , node ):
         
@@ -372,7 +394,10 @@ class node:
             ) or self.insertion_await or # president can't no be waitting for a node insertion
              self.distroy or # if falling node
              self.hello_await or # waitting for an entry node to be authenticated
-             not self.stabilization # if ring is not stable
+             ( # if ring is not stable
+                 not self.stabilization and \
+                 self.is_president() 
+            ) 
         ): 
                 
             if self.is_president() and \
@@ -405,19 +430,8 @@ class node:
         
         return True
     
-    def fix_finger_table(self , node ):
-        
-        # if message of insertion is has arrived and node insertion is not complited , ignore
-        if not self.answer_avaliabily():
-            return
-        
-        self.up_last_state()
+    def backup_state(self ):
         self.nodes_in_system += 1
-        if self.index + 2 ** ( len(self.finger_table) + 1 ) == self.nodes_in_system:
-            self.finger_table.append( { 'ip': node['ip'] , 'port': node['port'] , 'index': self.nodes_in_system - 1 } )
-    
-    def up_last_state(self):
-        
         self.last_state = {
             
             'finger_table': self.finger_table,
@@ -467,6 +481,7 @@ class node:
         self.finger_table[0]['ip'] = node['ip']
         self.finger_table[0]['port'] = node['port']
         self.finger_table[0]['index'] = node['index']
+        self.sucessor = self.finger_table[0]
         
         data = {
             'action': self.encode_action('inserted_node') ,
@@ -503,6 +518,7 @@ class node:
             self.insertion_await = False
             self.entry_node_info = { 'ip':'' , 'port':'' }
             self.stabilization = False
+            self.num_stabilized_nodes = 1
             self.stabilize() # fix finger table
             
     def alive(self , data ): # this signal is a request from predecesor

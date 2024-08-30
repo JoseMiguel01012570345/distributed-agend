@@ -22,7 +22,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 15
+    server_limit = 50
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -32,7 +32,7 @@ def enviroment():
     time = 0
     while True:
         
-        # os.system('cls')
+        os.system('cls')
         
         if len(entry_time) > 0: # testing entry node
             
@@ -51,8 +51,8 @@ def enviroment():
         
         for element in chord_system: # recieve msg from origin
             if len(element.tasks) > 0:
-                if element.tasks[0]['action'] == 10:
-                    print(f'{element.ip}_{element.port} retrying...')
+                # if element.tasks[0]['action'] == 10:
+                #     print(f'{element.ip}_{element.port} retrying...')
                     
                 element.recv_data()
                 mod = True
@@ -61,8 +61,14 @@ def enviroment():
             break
             
         time += 1
-        # print(time)
+        
+        print(first_node.nodes_in_system)
+        if time == 29504:
+            print(time)
     
+    for index,element in enumerate(chord_system):
+        print( f"node {index}:" , len(element.finger_table))
+        
     update_graph( nodes=chord_system , time=time )
     
 def update_graph( nodes:list , time:int ):
