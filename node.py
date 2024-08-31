@@ -256,10 +256,10 @@ class node:
         
     def select_fowarding_node( self , target_index ):
         
-        new_list = [ element for element in self.finger_table if element['index'] <= target_index ]
+        new_list = [ element for element in self.finger_table if element['index'] <= target_index ] # priorize element lower then target_index
         
-        if len(new_list) == 0:
-            new_list = [ element for element in self.finger_table if element['index'] >= self.index ]
+        if len(new_list) == 0: # otherwise , elements bigger then target_index
+            new_list = [ element for element in self.finger_table if element['index'] >= self.index ] 
         
         best_index = 0
         best_node = new_list[0]
@@ -275,16 +275,17 @@ class node:
     
     def recv_data( self ):
 
-        data = self.tasks[0]
-        self.tasks.pop(0)
+        while len(self.tasks) != 0: # solve all task
+            data = self.tasks[0]
+            self.tasks.pop(0)
+            
+            if self.distroy and time.time() - self.start_breaking < self.breaking_time:
+                return
         
-        if self.distroy and time.time() - self.start_breaking < self.breaking_time:
-            return
-    
-        data_action = data['action']
-        action = self.actions[ self.decode_action(data_action) ]
+            data_action = data['action']
+            action = self.actions[ self.decode_action(data_action) ]
 
-        action( data=data )
+            action( data=data )
     
     def update_sucessor(self , data ):
         

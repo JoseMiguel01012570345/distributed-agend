@@ -22,7 +22,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 50
+    server_limit = 5
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -89,15 +89,17 @@ def send( chord_system ):
     
     for element in chord_system: # delivery msg from origin to destination
         if len(element.env) > 0:
-            
-            dest_ip = element.env[0]['ip']
-            dest_port = element.env[0]['port']
-            data = element.env[0]['data']
-            data['origin'] = { 'ip': element.ip , 'port': element.port } # add origin to data
-            
-            delivery_msg( nodes=chord_system , destination={ 'ip': dest_ip , 'port': dest_port } , data=data )
-            element.env.pop(0)
-            mod = True
+            while len(element.env) != 0:
+                
+                msg = element.env[0]
+                dest_ip = msg['ip']
+                dest_port = msg['port']
+                data = msg['data']
+                data['origin'] = { 'ip': element.ip , 'port': element.port } # add origin to data
+                
+                delivery_msg( nodes=chord_system , destination={ 'ip': dest_ip , 'port': dest_port } , data=data )
+                element.env.pop(0)
+                mod = True
     
     return mod
 
