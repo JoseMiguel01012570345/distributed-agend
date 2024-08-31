@@ -23,17 +23,18 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 5
+    server_limit = 100
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
+    avaliable = True
     leaving_time = []
     sleep = []
     
     time = 0
     while True:
         
-        os.system('cls')
+        # os.system('cls')
         
         if len(entry_time) > 0: # testing entry node
             
@@ -47,7 +48,22 @@ def enviroment():
                 num_server += 1
                 new_node = node.node( ip=f'127.0.0.{num_server}' , port=num_server , president=president )
                 chord_system.append(new_node)
+        
+        elif len(entry_time) == 0:
             
+            inserted = inserted_nodes(chord_system=chord_system)
+            president = find_president(nodes=chord_system)
+            
+            # remove the president 
+            if president is not None and  inserted == server_limit and \
+                not president.insertion_await and  \
+                president.stabilization and \
+                avaliable:
+                server_limit -= 1
+                remove_president(chord_system=chord_system)
+                avaliable = False
+                print('president out')
+                
         mod = send( chord_system , time=time )
         
         for element in chord_system: # recieve msg from origin
@@ -62,12 +78,30 @@ def enviroment():
             break
             
         time += 1
-        if time == 17:
-            print()
-        print( 'inserted node: ', first_node.nodes_in_system)
-        
-    print(time)
+        # print(time)
+    
     update_graph( nodes=chord_system , time=time )
+
+def find_president(nodes):
+    for element in nodes:
+        if element.is_president():
+            return element
+
+def remove_president(chord_system:list):
+    
+    for index,node in enumerate(chord_system):
+        if node.is_president():
+            chord_system.pop(index)
+            return
+
+def inserted_nodes(chord_system:list):
+    
+    inserted = 0
+    for node in chord_system:
+        if node.answer_avaliabily():
+            inserted += 1
+    
+    return inserted
     
 def update_graph( nodes:list , time:int ):
     

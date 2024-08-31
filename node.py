@@ -92,6 +92,10 @@ class node:
             'index_response': self.index_response , 
             'find_index': self.find_index ,
             'completed': self.node_stable ,
+            'recognition' : self.recognition ,
+            'elected_president': self.elected_president ,
+            'retract_vote': self.retract_vote ,
+            
         }
         self.time = 0
         self.num_stabilized_nodes = 1
@@ -105,6 +109,7 @@ class node:
         }
         self.stabilization = True
         self.capacity =  psutil.virtual_memory().total  # Convert bytes
+        self.min_task_load = self.capacity
         self.entry_node_info = { 'ip':'' , 'port':'' }
     
     def hello( self , data ):
@@ -163,12 +168,18 @@ class node:
     
     def index_response(self , data ):
         
+        
         node = data['node']
         index= node['index']
+        
+        if any( [ item['index'] == index for item in self.finger_table ] ): # if the index is already in , return
+            return
+        
         if index in self.needed_nodes:
             self.needed_nodes.remove(index)
         
         self.finger_table.append( node )
+        self.up_state()
         
         if self.check_finger_table() and not self.is_president():
             self.stabilization_completed()
@@ -282,15 +293,15 @@ class node:
             data = self.tasks[0]
             self.tasks.pop(0)
             
-            if self.distroy:
-                return
-        
             data_action = data['action']
             action = self.actions[ self.decode_action(data_action) ]
 
             action( data=data )
-            
-            self.detect_falling_nodes( data['clock'] )
+        
+        '''
+        TOOD: split detect_falling_nodes method into a thread
+        '''
+        self.detect_falling_nodes( data['clock'] )
     
     def update_sucessor(self , data ):
         
@@ -309,15 +320,23 @@ class node:
         
     def node_leaving(self , data ):
         
+        if self.distroy: # cut forwarding loop message
+            return
+        
         node = data['node']
+        self.missing_node = node
         self.interrumpt()
         
         data={ 'action': self.encode_action('node_leaving') , 'node': node  }
         self.remove_node( node=node ) # remove missing node
-        self.broadcast(data=data)
+        self.nodes_in_system -= 1
+        self.fix_index()
         
-        if node['ip'] == self.president['ip'] and node['port'] == self.president['port']: # verify the missing node is the president
-            self.start_election()
+        # change my sucessor as the sucessor of my sucessor
+        if self.sucessor['ip'] == node['ip'] and self.sucessor['port'] == node['port'] and len(self.finger_table) !=0:
+            self.sucessor = self.finger_table[0]
+        
+        self.broadcast(data=data)
         
     def remove_node( self , node ): # remove a fallen node
         
@@ -329,33 +348,86 @@ class node:
             if element['ip'] == remove_ip and element['port'] == remove_port and element['index'] == remove_index:
                 self.finger_table.pop(index)        
 
-    def calculate_list_memory_usage(lst):
+    def calculate_list_memory_usage(self, lst):
         return sys.getsizeof(lst)
-
+    
+    def fix_index( self ):
+        
+        if self.missing_node['index'] < self.index:
+            self.index -= 1
+        
+        for node in self.finger_table:
+            if node['index'] > self.missing_node['index']:
+                node['index'] -= 1
+        
+        self.up_state()
+    
+    def retract_vote(self , data ):
+        self.num_votes -= data['num_votes']
+    
+    def recognition( self , president ):
+    
+        data={
+            'action': self.encode_action('elected_president') ,
+            'president': { 'ip': president['ip'] , 'port': president['port'] }
+        }
+        self.distroy = False
+        self.vote = False
+        self.elected = True
+        self.broadcast(data=data)
+        self.stabilize()
+        print( 'president:' , self.ip , self.port )
+            
+    def elected_president( self , data ):
+        
+        if not self.elected:
+            self.elected = True
+            self.president = data['president']
+            self.distroy = False
+            self.vote = False
+            self.broadcast(data=data)
+    
     def election( self , data ):
         
-        task_load = data['task_load']
-        node = data['node']
-        ip = node['ip']
-        port = node['port']
+        if data['num_votes'] == self.nodes_in_system:
+            self.recognition( president=data['node'] )
         
-        if self.calculate_list_memory_usage(self.tasks) / self.capacity > task_load: # taskless node is elected has president
-            self.president = { 'ip': ip , 'port': port }
-            self.broadcast( data=data )
-    
+        data['num_votes'] += 1
+        task_load = data['task_load']
+        
+        # taskless node is elected as president
+        if self.min_task_load < task_load: 
+            
+            self.send_data( ip=self.sucessor['ip'] ,
+                        port=self.sucessor['port'] , 
+                        data={ 
+                            'action': self.encode_action('election') ,
+                            'num_votes': data['num_votes'] ,
+                            'node': { 'ip': self.ip , 'port': self.port } ,
+                            'task_load': self.min_task_load ,
+                            }
+                        )
+                    
+            return
+        
+        self.elected = False
+        self.send_data( ip=self.sucessor['ip'] ,port=self.sucessor['port'] , data=data )
+            
     def broadcast(self , data ):
         for element in self.finger_table:
             self.send_data( element['ip'] , element['port'] , data=data )
     
     def start_election(self): # broadcast elections to all linked nodes
         
+        task_load = self.calculate_list_memory_usage(self.tasks) / self.capacity
         data = { 
                 'action': self.encode_action('election') ,
-                'task_load': len(self.tasks) ,
+                'task_load': task_load ,
                 'node': { 'ip':self.ip  , 'port':self.port } ,
-            }
+                'num_votes': 0 ,
+                }
         
-        self.broadcast( data=data )
+        self.election( data=data )
     
     def is_president(self):
         return self.president['ip'] == self.ip and self.president['port'] == self.port
@@ -438,6 +510,9 @@ class node:
     
     def backup_state(self ):
         self.nodes_in_system += 1
+        self.up_state()
+        
+    def up_state(self):
         self.last_state = {
             
             'finger_table': self.finger_table,
@@ -542,15 +617,30 @@ class node:
         
         if not self.answer_avaliabily(): return
         
-        response_time = self.nodes_in_system / self.nodes_in_system
+        response_time = 2
         
         if clock - self.time >= response_time:
         
-            if self.node_response is not None: # faulty node found
-                m = self.sucessor # sucessor has fallen
-                self.node_leaving( m )
+            if self.node_response is not None : # faulty node found
+                missing = self.sucessor # sucessor has fallen
+                self.distroy = False
+                self.node_leaving( data={ 'node': missing })
+                self.node_response = None
+                
+                # verify the missing node is the president
+                if missing['ip'] == self.president['ip'] and missing['port'] == self.president['port']: 
+                    self.president = { 'ip':'' , 'port': '' }
+                    self.stabilization = False # stabilization is now required
+                    self.min_task_load = self.calculate_list_memory_usage(self.tasks) / self.capacity # my load
+                    self.president = { 'ip': self.ip , 'port': self.port } # I'm the president
+                    self.elected = False # president election flag
+                    self.start_election()
+                
+                print('node out: ', missing )
+            
             else:
                 self.time = clock
+                self.node_response = self.sucessor
                 self.send_data(
                     ip=self.sucessor['ip'] ,
                     port=self.sucessor['port'] ,
@@ -578,6 +668,9 @@ class node:
             'index_response': 13 ,
             'find_index': 14 ,
             'completed': 15 ,
+            'recognition' : 16 ,
+            'elected_president': 17 ,
+            'retract_vote': 18 ,
         }
         
         return actions[action]
@@ -601,6 +694,9 @@ class node:
             13: 'index_response',
             14: 'find_index' ,
             15: 'completed' ,
+            16: 'recognition' ,
+            17: 'elected_president' ,
+            18: 'retract_vote' ,
         }
         
         return actions[action_encoded]
