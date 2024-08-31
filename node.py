@@ -73,6 +73,7 @@ class node:
         self.port = 0
         self.president = { 'ip': self.ip , 'port':self.port , 'index': self.index  }
         self.sucessor = {}
+        self.node_response = None
         self.actions = {
             
             'hello' : self.hello ,
@@ -92,6 +93,7 @@ class node:
             'find_index': self.find_index ,
             'completed': self.node_stable ,
         }
+        self.time = 0
         self.num_stabilized_nodes = 1
         self.insertion_await = False
         self.hello_await = False
@@ -274,18 +276,21 @@ class node:
         return not self.index is None
     
     def recv_data( self ):
-
+        
         while len(self.tasks) != 0: # solve all task
+            
             data = self.tasks[0]
             self.tasks.pop(0)
             
-            if self.distroy and time.time() - self.start_breaking < self.breaking_time:
+            if self.distroy:
                 return
         
             data_action = data['action']
             action = self.actions[ self.decode_action(data_action) ]
 
             action( data=data )
+            
+            self.detect_falling_nodes( data['clock'] )
     
     def update_sucessor(self , data ):
         
@@ -525,26 +530,34 @@ class node:
     def alive(self , data ): # this signal is a request from predecesor
         
         node = data['node']
-        self.send_data( node['ip'] , node['port'] , data={ 'action': self.encode_action('on') } )
+        self.send_data( ip=node['ip'] ,
+                       port=node['port'] ,
+                       data={ 'action': self.encode_action('on') } 
+                       )
     
     def on( self , data ): # this signal means that sucessor is alive
-        
-        if len(self.node_response) > 0:
-            self.node_response = None
+        self.node_response = None
     
-    def detect_falling_nodes( self ):
+    def detect_falling_nodes( self , clock ):
         
-        response_time = 1.0 * self.nodes_in_system
-        sucessor = self.finger_table[0]
+        if not self.answer_avaliabily(): return
         
-        if time.time() - self.node_response[0]['time'] >= response_time:
+        response_time = self.nodes_in_system / self.nodes_in_system
+        
+        if clock - self.time >= response_time:
         
             if self.node_response is not None: # faulty node found
-                m = sucessor # sucessor has fallen
+                m = self.sucessor # sucessor has fallen
                 self.node_leaving( m )
-            
             else:
-                self.send_data( sucessor[0]['ip'] , sucessor['port'] , data={ 'action': self.encode_action('alive') } ) # send alive signal to sucessor
+                self.time = clock
+                self.send_data(
+                    ip=self.sucessor['ip'] ,
+                    port=self.sucessor['port'] ,
+                    data={
+                        'action': self.encode_action('alive') ,
+                        'node': { 'ip': self.ip , 'port': self.port } }
+                    ) # send alive signal to sucessor
     
     def encode_action(self , action ):
         
@@ -578,6 +591,7 @@ class node:
             3: 'node_leaving',
             4: 'entry_node',
             5: 'insert_node',
+            6: 'on' ,
             7: 'update_sucessor',
             8: 'inserted_node' ,
             9: 'wellcome' ,

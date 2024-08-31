@@ -15,6 +15,7 @@ def enviroment():
     first_node.index = 0
     first_node.finger_table.append( { 'ip': first_node.ip , 'port':first_node.port , 'index':first_node.index } )
     first_node.nodes_in_system += 1
+    first_node.sucessor = { 'ip': first_node.ip , 'port': first_node.port }
     
     chord_system.append(first_node)
     
@@ -47,7 +48,7 @@ def enviroment():
                 new_node = node.node( ip=f'127.0.0.{num_server}' , port=num_server , president=president )
                 chord_system.append(new_node)
             
-        mod = send( chord_system )
+        mod = send( chord_system , time=time )
         
         for element in chord_system: # recieve msg from origin
             if len(element.tasks) > 0:
@@ -61,14 +62,11 @@ def enviroment():
             break
             
         time += 1
+        if time == 17:
+            print()
+        print( 'inserted node: ', first_node.nodes_in_system)
         
-        print(first_node.nodes_in_system)
-        if time == 29504:
-            print(time)
-    
-    for index,element in enumerate(chord_system):
-        print( f"node {index}:" , len(element.finger_table))
-        
+    print(time)
     update_graph( nodes=chord_system , time=time )
     
 def update_graph( nodes:list , time:int ):
@@ -84,7 +82,7 @@ def update_graph( nodes:list , time:int ):
     plt.show()
     # plt.savefig('./graph.jpg')
    
-def send( chord_system ):
+def send( chord_system , time=0 ):
     mod = False
     
     for element in chord_system: # delivery msg from origin to destination
@@ -96,7 +94,7 @@ def send( chord_system ):
                 dest_port = msg['port']
                 data = msg['data']
                 data['origin'] = { 'ip': element.ip , 'port': element.port } # add origin to data
-                
+                data['clock'] = time 
                 delivery_msg( nodes=chord_system , destination={ 'ip': dest_ip , 'port': dest_port } , data=data )
                 element.env.pop(0)
                 mod = True
