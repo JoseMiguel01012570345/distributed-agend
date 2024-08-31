@@ -23,7 +23,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 100
+    server_limit = 10
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -60,9 +60,10 @@ def enviroment():
                 president.stabilization and \
                 avaliable:
                 server_limit -= 1
-                remove_president(chord_system=chord_system)
+                remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 avaliable = False
-                print('president out')
+                
                 
         mod = send( chord_system , time=time )
         
@@ -76,7 +77,9 @@ def enviroment():
         
         if not mod and len(entry_time) == 0:
             break
-            
+        
+        inserted = inserted_nodes(chord_system=chord_system)
+        # print( 'inserted nodes: ', inserted )
         time += 1
         # print(time)
     
@@ -87,10 +90,10 @@ def find_president(nodes):
         if element.is_president():
             return element
 
-def remove_president(chord_system:list):
+def remove_node(chord_system:list , target):
     
     for index,node in enumerate(chord_system):
-        if node.is_president():
+        if node.ip == target['ip']  and  node.port == target['port']:
             chord_system.pop(index)
             return
 

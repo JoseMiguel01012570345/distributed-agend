@@ -92,9 +92,7 @@ class node:
             'index_response': self.index_response , 
             'find_index': self.find_index ,
             'completed': self.node_stable ,
-            'recognition' : self.recognition ,
             'elected_president': self.elected_president ,
-            'retract_vote': self.retract_vote ,
             
         }
         self.time = 0
@@ -111,6 +109,7 @@ class node:
         self.capacity =  psutil.virtual_memory().total  # Convert bytes
         self.min_task_load = self.capacity
         self.entry_node_info = { 'ip':'' , 'port':'' }
+        self.erease_ftable = True
     
     def hello( self , data ):
         
@@ -173,6 +172,11 @@ class node:
         index= node['index']
         
         if any( [ item['index'] == index for item in self.finger_table ] ): # if the index is already in , return
+            
+            if self.check_finger_table() and not self.is_president(): # check for stabilization before exiting
+                self.stabilization_completed()
+                self.erease_ftable = True
+            
             return
         
         if index in self.needed_nodes:
@@ -183,27 +187,23 @@ class node:
         
         if self.check_finger_table() and not self.is_president():
             self.stabilization_completed()
+            self.erease_ftable = True
          
     def stabilize( self , data=None ):
         
-        if self.stabilization : # if node is stable , do not forward stabilization
+        if self.stabilization: # if node is stable , do not forward stabilization
             return
         
-        if self.check_finger_table(): # otherwise check stability and foward stabilization instuction
-            self.stabilization_completed() # report stabilization
-            self.broadcast( data={ 'action': self.encode_action('stabilize') } )
-            return
-                
-        self.stabilization = False
         self.needed_nodes= []
-        self.finger_table = [ self.sucessor ]
+        if self.erease_ftable:
+            self.finger_table = [ self.sucessor ]
+            self.erease_ftable = False
         
         i = 0
         while i < int(math.log2(self.nodes_in_system)):
             
             i += 1
-            
-            p = int( self.index + 2 ** ( i- 1 ) ) % self.nodes_in_system
+            p = ( self.index + 2 ** ( i- 1 ) ) % self.nodes_in_system
             
             if not any( [ item['index'] == p for item in self.finger_table ] ) and \
                 self.index != p: # if 'p' index is not in finger table
@@ -217,6 +217,10 @@ class node:
                     }
                 } )
         
+        if len(self.needed_nodes) == 0: # check if there are no needed node , if so we are done
+            self.stabilization_completed()
+            self.erease_ftable = True
+            
         self.broadcast( data={ 'action': self.encode_action('stabilize') } )
     
     def check_finger_table(self):
@@ -268,6 +272,9 @@ class node:
         #_________________________________________________________________________
         
     def select_fowarding_node( self , target_index ):
+        
+        if len(self.finger_table) == 0: # if no node in finger table , rely on president
+            return self.president['ip'] , self.president['port']
         
         new_list = [ element for element in self.finger_table if element['index'] <= target_index ] # priorize element lower then target_index
         
@@ -334,8 +341,12 @@ class node:
         
         # change my sucessor as the sucessor of my sucessor
         if self.sucessor['ip'] == node['ip'] and self.sucessor['port'] == node['port'] and len(self.finger_table) !=0:
-            self.sucessor = self.finger_table[0]
+            for index,element in enumerate(self.finger_table):
+                if element['index'] == (self.index + 1) % self.nodes_in_system:
+                    self.sucessor = self.finger_table[index]
+                    break
         
+        self.stabilization = False
         self.broadcast(data=data)
         
     def remove_node( self , node ): # remove a fallen node
@@ -361,9 +372,6 @@ class node:
                 node['index'] -= 1
         
         self.up_state()
-    
-    def retract_vote(self , data ):
-        self.num_votes -= data['num_votes']
     
     def recognition( self , president ):
     
@@ -635,7 +643,11 @@ class node:
                     self.president = { 'ip': self.ip , 'port': self.port } # I'm the president
                     self.elected = False # president election flag
                     self.start_election()
+                    print('node out: ', missing )
+                    
+                    return
                 
+                self.stabilize() # if the falling node is not the president , then skip election
                 print('node out: ', missing )
             
             else:
@@ -668,9 +680,7 @@ class node:
             'index_response': 13 ,
             'find_index': 14 ,
             'completed': 15 ,
-            'recognition' : 16 ,
             'elected_president': 17 ,
-            'retract_vote': 18 ,
         }
         
         return actions[action]
@@ -694,9 +704,7 @@ class node:
             13: 'index_response',
             14: 'find_index' ,
             15: 'completed' ,
-            16: 'recognition' ,
             17: 'elected_president' ,
-            18: 'retract_vote' ,
         }
         
         return actions[action_encoded]
