@@ -23,7 +23,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 10
+    server_limit = 50
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -73,7 +73,7 @@ def enviroment():
                 #     print(f'{element.ip}_{element.port} retrying...')
                     
                 element.recv_data()
-                mod = True
+                mod = True  
         
         if not mod and len(entry_time) == 0:
             break
