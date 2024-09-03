@@ -23,13 +23,12 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 15
+    server_limit = 20
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
     avaliable = True
     leaving_time = []
-    sleep = []
     
     time = 0
     while True:
@@ -64,30 +63,20 @@ def enviroment():
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 
                 avaliable = False
                 
-        mod = send( chord_system , time=time )
+        send( chord_system , time=time )
         
         for element in chord_system: # recieve msg from origin
-            if len(element.tasks) > 0:
-                # if element.tasks[0]['action'] == 10:z
-                #     print(f'{element.ip}_{element.port} retrying...')
-                    
-                element.recv_data()
-                mod = True  
+                element.recv_data(clock=time)
         
-        if not mod and len(entry_time) == 0:
-            break
-        
-        inserted = inserted_nodes(chord_system=chord_system)
-        # print( 'inserted nodes: ', inserted )
         time += 1
-        # print(time)
+        
     
     update_graph( nodes=chord_system , time=time )
 
@@ -137,7 +126,6 @@ def send( chord_system , time=0 ):
                 dest_port = msg['port']
                 data = msg['data']
                 data['origin'] = { 'ip': element.ip , 'port': element.port } # add origin to data
-                data['clock'] = time 
                 delivery_msg( nodes=chord_system , destination={ 'ip': dest_ip , 'port': dest_port } , data=data )
                 element.env.pop(0)
                 mod = True
