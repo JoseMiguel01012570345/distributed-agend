@@ -4,44 +4,45 @@ import psutil
 import sys
 import numpy as np
 
-'''
-
-TODO:
-
-Entry node:
-
-1. Node ask president insertion
-2. Every node in system updates its finger table
-3. President finds lowest index node ,  and gives to entry node as succesor
-4. New node ask for sucessor's finger table
-
-
-Leaving node:
-
-1. Every node ask to its links for 'live' response , if given a time , such response is not returned , a falling node is found
-2. Given a falling node , this node is notify through all of the network , and each node in system , removes it from finger table
-3. Provious node from the falling one , is intended to reconect the ring and fix its finger table , so this ask for ip and port of the node that better
-    fix n = max((m+1) - 2^i) , where i >= 1 and m is the missing node, in here n is an existing node to his finger table connections . If every node from 
-    the finger table is fallen , then ask to president . Note that i is the lowest posible
-
-4. When requested node n is found then , the connector node ask to n for its finger table ,  and adjust his finger table, where his successor is the m + 1 node ,
-    since in n's finger table the m + 1 's ip and port are registred
-
-At this moment the ring is already connected , so we have to update every finger table . 
-
-5. Previous falling node ask nodes from his index to update them index , when the last node updates his index ( last node is that whose succesor index is lower ) ,
-    then broadcast to the ring for nodes in system count to be updated
-
-6. Right now every node can update his finger table ask to his links for index nodes
-
-Crashing in stabilization
-
-1. If a node is crashed while stabilization under underway , then a flooding message 'break' is send to a ring to avoid current stabilization
-2. When a node sends a 'break' message it expects 'good' message response for a time t , if no message is returned then a falling node is found .
-
-'''
-
 class node:
+
+    '''
+
+    TODO:
+
+
+    Entry node:
+
+    1. Node ask president insertion
+    2. Every node in system updates its finger table
+    3. President finds lowest index node ,  and gives to entry node as succesor
+    4. New node ask for sucessor's finger table
+
+
+    Leaving node:
+
+    1. Every node ask to its links for 'live' response , if given a time , such response is not returned , a falling node is found
+    2. Given a falling node , this node is notify through all of the network , and each node in system , removes it from finger table
+    3. Provious node from the falling one , is intended to reconect the ring and fix its finger table , so this ask for ip and port of the node that better
+        fix n = max((m+1) - 2^i) , where i >= 1 and m is the missing node, in here n is an existing node to his finger table connections . If every node from 
+        the finger table is fallen , then ask to president . Note that i is the lowest posible
+
+    4. When requested node n is found then , the connector node ask to n for its finger table ,  and adjust his finger table, where his successor is the m + 1 node ,
+        since in n's finger table the m + 1 's ip and port are registred
+
+    At this moment the ring is already connected , so we have to update every finger table . 
+
+    5. Previous falling node ask nodes from his index to update them index , when the last node updates his index ( last node is that whose succesor index is lower ) ,
+        then broadcast to the ring for nodes in system count to be updated
+
+    6. Right now every node can update his finger table asking to his links for index nodes
+
+    Crashing in stabilization
+
+    1. If a node is crashed while stabilization under underway , then a flooding message 'break' is send to a ring to avoid current stabilization
+    2. When a node sends a 'break' message it expects 'good' message response for a time t , if no message is returned then a falling node is found .
+
+    '''
     
     def __init__(self , ip , port  , president=None ):
         
@@ -93,6 +94,8 @@ class node:
             'find_index': self.find_index ,
             'completed': self.node_stable ,
             'elected_president': self.elected_president ,
+            'stable_ring' : self.stable_ring ,
+            'reset_stabilization': self.reset_stabilization ,
             
         }
         self.time = 0
@@ -109,8 +112,9 @@ class node:
         self.capacity =  psutil.virtual_memory().total  # Convert bytes
         self.min_task_load = self.capacity
         self.entry_node_info = { 'ip':'' , 'port':'' }
-        self.erease_ftable = True
-        self.missing_node = { 'ip':''  , 'port': '' } 
+        self.fix_fg = True
+        self.missing_node = []
+        self.foraing_nodes = []
     
     def hello( self , data ):
         
@@ -148,6 +152,11 @@ class node:
     def find_index( self , data=None ):
         
         index = data['index']
+        
+        # if the index doesn't exist any longer , do not forward request
+        if index >= self.nodes_in_system:
+            return
+        
         if self.index != index: # if not the index , forward message
             
             ip , port = self.select_fowarding_node(target_index=index)
@@ -179,7 +188,7 @@ class node:
             self.finger_table.append( node )
             self.up_state()
             
-            if self.check_finger_table() and not self.is_president():
+            if self.check_finger_table() and not self.stabilization:
                 self.stabilization_completed()
          
     def stabilize( self , data=None ):
@@ -187,33 +196,47 @@ class node:
         if self.stabilization: # if node is stable , do not forward stabilization
             return
         
-        self.needed_nodes= []
-        if self.erease_ftable:
-            self.finger_table = [ self.sucessor ]
-            self.node_response = []
-            self.erease_ftable = False
-        
-        i = 0
-        while i < int(math.log2(self.nodes_in_system)):
+        if self.fix_fg:
             
-            i += 1
-            p = ( self.index + 2 ** ( i- 1 ) ) % self.nodes_in_system
+            self.needed_nodes= []
+            self.fix_fg = False
             
-            if not any( [ item['index'] == p for item in self.finger_table ] ) and \
-                self.index != p: # if 'p' index is not in finger table
+            i = 0
+            while i < int(math.log2(self.nodes_in_system)):
                 
-                self.needed_nodes.append(p)
-                self.find_index( data={ # find index p
-                    'action': self.encode_action('find_index') ,
-                    'index': p ,
-                    'requester':{ 
-                        'ip':self.ip , 'port': self.port 
-                    }
-                } )
-        
-        if len(self.needed_nodes) == 0: # check if there are no needed node , if so we are done
+                i += 1
+                p = ( self.index + 2 ** ( i- 1 ) ) % self.nodes_in_system
+                
+                if self.index != p: # if 'p' index is not in finger table
+                    self.needed_nodes.append(p)
+            
+            # remove all element in finger table that are not needed
+            for index,node in enumerate(self.finger_table): 
+                if not node['index'] in self.needed_nodes:
+                    self.foraing_nodes.append(node)
+                    
+            # find the elements that are not in finger table
+            index = 0
+            while index < len(self.needed_nodes):
+                
+                n = self.needed_nodes[index]
+                
+                if not  any( [ element['index'] == n  for element in self.finger_table ] ):
+                    self.find_index( data={ # find index p
+                        'action': self.encode_action('find_index') ,
+                        'index': n ,
+                        'requester':{ 
+                            'ip':self.ip , 'port': self.port 
+                        }
+                    } )
+                else:
+                    self.needed_nodes.remove(n)
+                    index -= 1
+                    
+                index += 1
+            
+        if len(self.needed_nodes) == 0 and not self.stabilization: # check if there are no needed node , if so we are done
             self.stabilization_completed()
-            self.erease_ftable = True
             
         self.broadcast( data={ 'action': self.encode_action('stabilize') } )
     
@@ -229,12 +252,13 @@ class node:
         if self.is_president(): return
         
         self.stabilization = True
-        self.erease_ftable = True
+        self.fix_fg = True
         self.send_data(
             ip=self.president['ip'] ,
             port=self.president['port'] ,
             data={ 'action':self.encode_action( 'completed' ) }
         )
+        self.remove_foraings()
     
     def node_stable(self , data ):
         
@@ -242,10 +266,54 @@ class node:
         
         self.num_stabilized_nodes += 1
         if self.num_stabilized_nodes == self.nodes_in_system: # if all nodes are stable , president is stable
+         
             self.stabilization = True
             self.num_stabilized_nodes = 1
+            data = {
+                'action':self.encode_action('stable_ring') ,
+                'node': { 'ip': self.ip , 'port': self.port  } ,
+                'nodes_in_system' : self.nodes_in_system
+            }
+            self.remove_foraings()
+            self.broadcast( data=data )
             print('stabilized ring with: ', self.nodes_in_system , ' nodes')
+    
+    def stable_ring(self , data):
+        
+        if self.is_president() or self.stabilization: return
+        
+        nodes_in_system = data['nodes_in_system']
+        
+        if nodes_in_system < self.nodes_in_system: # node is not stable yet so we will reset stabilization
+            self.nodes_in_system = nodes_in_system
+            self.reset_stabilization()
+            return
+        
+        self.broadcast(data=data)
+    
+    def remove_foraings(self):
+        
+        i = 0
+        while len(self.finger_table) != int(math.log2(self.nodes_in_system)): # remove all of the nodes in finger table that do not fit in finger table
+            
+            i = i % len(self.finger_table)
+            element = self.finger_table[i]
+        
+            if any( [ item['ip'] == element['ip'] and item['port'] == element['port']  for item in self.foraing_nodes] ):
+                self.finger_table.pop(i)
+                i -= 1
                 
+            i += 1
+        
+        self.foraing_nodes.clear()
+    
+    def reset_stabilization( self , data=None ): # this mecanisim fix incompatibility in number of nodes un system
+        
+        self.stabilization = False
+        self.fix_fg = True
+        self.broadcast( data={ 'action':self.encode_action('reset_stabilization') } )
+        self.stabilize()
+    
     def exiting_node( self , data ):
         input()
         print( data['msg'] )
@@ -324,22 +392,34 @@ class node:
     def node_leaving(self , data ):
         
         node = data['node']
-        if self.missing_node['ip'] == node['ip'] and self.missing_node['port'] == node['port']: # we don't forward 
-            return
         
-        self.missing_node = node
+        # we don't forward if the falling node is already taken into account
+        if any( [element['ip'] == node['ip'] and element['port'] == node['port'] for element in self.missing_node] ) or node['index'] >= self.nodes_in_system: # case 1
+            return
+        elif self.stabilization: # case 2
+            self.stabilization = False
+        elif not self.stabilization: # case 3
+            self.fix_fg = True # start again fixing the finger table
+        
+        self.missing_node.append(node)
         self.interrumpt()
         
-        data={ 'action': self.encode_action('node_leaving') , 'node': node  }
         self.remove_node( node=node ) # remove missing node
         self.nodes_in_system -= 1
         self.fix_index()
         
         i = 0
-        while i < self.nodes_in_system:
+        k = -1
+        while True and len(self.finger_table) != 0:
+            
+            i = i % int(math.log2(self.nodes_in_system))
+
+            if i == 0: k += 1
+            
+            k = k % int(math.log2(self.nodes_in_system))
             
             element = self.finger_table[i]
-            p = (self.index + 1) % self.nodes_in_system
+            p = (self.index + 2 ** k ) % self.nodes_in_system
             
             if element['index'] == p:
                 self.sucessor = self.finger_table[i] # change sucessor
@@ -347,7 +427,8 @@ class node:
             
             i += 1
         
-        self.stabilization = False
+        data={ 'action': self.encode_action('node_leaving') , 'node': node  }
+        
         self.broadcast(data=data)
         
     def remove_node( self , node ): # remove a fallen node
@@ -364,11 +445,14 @@ class node:
     
     def fix_index( self ):
         
-        if self.missing_node['index'] < self.index:
+        if self.port == 7:
+            print()
+        
+        if self.missing_node[-1]['index'] <= self.index:
             self.index -= 1
         
         for node in self.finger_table:
-            if node['index'] > self.missing_node['index']:
+            if node['index'] > self.missing_node[-1]['index']:
                 node['index'] -= 1
         
         self.up_state()
@@ -422,6 +506,16 @@ class node:
         self.send_data( ip=self.sucessor['ip'] ,port=self.sucessor['port'] , data=data )
             
     def broadcast(self , data ):
+        
+        if not any( [
+                    element['ip'] == self.president['ip'] 
+                        and element['port'] == self.president['port'] 
+                        for element in self.missing_node 
+                        ] 
+                    ):
+            
+            self.send_data( self.president['ip'] , self.president['port'] , data=data )
+            
         for element in self.finger_table:
             self.send_data( element['ip'] , element['port'] , data=data )
     
@@ -468,6 +562,8 @@ class node:
             self.auth_node = False
             self.send_data( ip=ip , port=port , data=data ) # send data to last link of president finger table
             self.entry_node_info = node
+        
+        self.missing_node.clear()
         
         # ask every link node to fix its finger table
         data = { 'action': self.encode_action('entry_node') , 'node': node }
@@ -617,7 +713,7 @@ class node:
             self.insertion_await = False
             self.entry_node_info = { 'ip':'' , 'port':'' }
             self.stabilization = False
-            self.num_stabilized_nodes = 1
+            self.fix_fg = True
             self.stabilize() # fix finger table
             
     def alive(self , data ): # this signal is a request from predecesor
@@ -663,8 +759,8 @@ class node:
                     
                     # if the falling node is not the president , then skip election
                     self.node_leaving( data={ 'node': node })
-                    print('node out: ', node )
                     
+                    print('node out1: ', node , { 'ip':self.ip , 'port': self.port } )
                     if not self.is_president(node=node):
                         self.stabilize()
                     
@@ -703,6 +799,8 @@ class node:
             'find_index': 14 ,
             'completed': 15 ,
             'elected_president': 17 ,
+            'stable_ring': 18 ,
+            'reset_stabilization': 19 ,
         }
         
         return actions[action]
@@ -727,6 +825,8 @@ class node:
             14: 'find_index' ,
             15: 'completed' ,
             17: 'elected_president' ,
+            18: 'stable_ring' ,
+            19: 'reset_stabilization' ,
         }
         
         return actions[action_encoded]

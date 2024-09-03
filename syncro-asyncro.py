@@ -23,7 +23,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 50
+    server_limit = 15
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -60,16 +60,22 @@ def enviroment():
                 president.stabilization and \
                 avaliable:
                 server_limit -= 1
-                remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                avaliable = False
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 
+                avaliable = False
                 
         mod = send( chord_system , time=time )
         
         for element in chord_system: # recieve msg from origin
             if len(element.tasks) > 0:
-                # if element.tasks[0]['action'] == 10:
+                # if element.tasks[0]['action'] == 10:z
                 #     print(f'{element.ip}_{element.port} retrying...')
                     
                 element.recv_data()
