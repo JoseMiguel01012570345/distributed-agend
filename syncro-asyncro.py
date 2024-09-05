@@ -23,17 +23,16 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 20
+    server_limit = 15
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
     avaliable = True
     leaving_time = []
     
-    time = 0
+    time = 1
+    s=''
     while True:
-        
-        # os.system('cls')
         
         if len(entry_time) > 0: # testing entry node
             
@@ -76,9 +75,37 @@ def enviroment():
                 element.recv_data(clock=time)
         
         time += 1
-        
+        # s = report(nodes=chord_system , s=s)
+        ellapse_time(nodes=chord_system)
+        input()
     
     update_graph( nodes=chord_system , time=time )
+
+def ellapse_time(nodes):
+    os.system('cls')
+    for node in nodes:
+        if node.answer_avaliabily():
+            print(f'ip:{node.ip} port:{node.port} index:{node.index} --> ellapse time: {node.ellapse_time}')
+            
+
+def report(nodes , s):
+    
+    lider = find_president(nodes=nodes)
+    str_report= f"_____number of nodes {lider.nodes_in_system}_____\n"
+    for element in nodes:
+        if element.answer_avaliabily():
+            fg = '' 
+            for item in element.finger_table :
+                fg +=f"{item}\n"
+                
+            str_report += f"-> ip:{element.ip} port:{element.port}  index:{element.index} '\n' {fg}"
+            str_report += "__________________________________\n"
+    
+    if s != str_report:
+        os.system('cls')
+        print( str_report )
+        
+    return str_report
 
 def find_president(nodes):
     for element in nodes:
