@@ -23,7 +23,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 15
+    server_limit = 40
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -63,21 +63,21 @@ def enviroment():
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 
                 avaliable = False
                 
         send( chord_system , time=time )
         
         for element in chord_system: # recieve msg from origin
-                element.recv_data(clock=time)
+            element.recv_data(clock=time)
         
         time += 1
         # s = report(nodes=chord_system , s=s)
-        ellapse_time(nodes=chord_system)
-        input()
+        # ellapse_time(nodes=chord_system)
+        # input()
     
     update_graph( nodes=chord_system , time=time )
 
