@@ -385,15 +385,15 @@ class node:
         self.stabilization = False
         self.finish_indexing = False
         
-        if self.is_president(node=node):
+        if node['index'] == self.president['index']:
             self.last_president = self.president
-            self.president = None
+            self.president = { 'ip': None , 'port': None , 'index': None }
             self.elected = False
         
         data={ 'action': self.encode_action('node_leaving') , 'node': node }
         self.broadcast(data=data , use_president=True )
         
-        if not self.is_president() and self.president is not None: # ask for index to president
+        if not self.is_president() and self.president['ip'] is not None: # ask for index to president
             self.ask_index()
         
     def remove_node( self , node ): # remove a fallen node
@@ -529,26 +529,35 @@ class node:
         
         president_index = -1
         
-        if self.last_president['index'] > self.nodes_in_system: # circular ring
-            president_index = 0
-        else:
-            president_index = self.last_president['index'] + 1 # take the next index in the ring
+        for indexes in range(self.nodes_in_system):
         
-        if self.index == president_index:
-            data = {
-                'action': self.encode_action('elected_president') ,
-                'president': { 'ip': self.ip , 'port': self.port , 'index': self.index } 
-                }
+            if any( element['index'] == indexes for element in self.missing_node ) or \
+            self.last_president['index'] > indexes:  continue
             
-            self.elected_president( data=data )
+            if self.last_president['index'] < indexes: # circular ring
+                president_index = indexes
             
+            if president_index == self.president['index']: return
+            
+            if self.index == president_index:
+                data = {
+                    'action': self.encode_action('elected_president') ,
+                    'president': { 'ip': self.ip , 'port': self.port , 'index': self.index } 
+                    }
+                
+                self.elected_president( data=data )
+            
+            else:
+                self.president = { 'ip': None , 'port': None , 'index': president_index }
+                print( f'elected president index: {president_index} , node: {self.ip} {self.port} {self.index}' )
+            
+            self.broadcast(data=data)
             return
         
-        self.broadcast(data=data)
             
     def broadcast(self , data , use_president= False ):
         
-        if self.president is not None and ( use_president or len(self.finger_table) == 0 ) and not self.is_president():
+        if self.president['ip'] is not None and ( use_president or len(self.finger_table) == 0 ) and not self.is_president():
             
             self.send_data( self.president['ip'] , self.president['port'] , data=data )
             
@@ -562,9 +571,9 @@ class node:
     def is_president(self , node=None):
         
         if node is not None:
-            return self.president is not None and self.president['ip'] == node['ip'] and self.president['port'] == node['port']    
+            return self.president['index'] == node['index'] 
         
-        return self.president is not None and self.president['ip'] == self.ip and self.president['port'] == self.port
+        return self.president['index'] == self.index
     
     def entry_node(self , data ):
         
@@ -780,7 +789,7 @@ class node:
         
         if self.time % response_time != 0 or not self.answer_avaliabily():
             return
-        
+            
         if len(self.node_response) != 0: # faulty nodes found
             
             
@@ -810,7 +819,8 @@ class node:
             
             for element in self.finger_table: # send a 'alive' signal to all links
                 
-                if self.is_president(node=element): continue
+                # avoid to much alive request to president if it is stable
+                if self.is_president(node=element) and self.president['ip'] is not None: continue 
                 
                 self.node_response.append( { 'ip': element['ip'] , 'port': element['port'] , 'index': element['index']} )
                 
@@ -823,7 +833,7 @@ class node:
                     )
 
             # check every two checking cycles for the president
-            if self.president is not None and self.time % ( 2 * response_time) == 0:
+            if self.president['ip'] is not None and self.time % ( 2 * response_time) == 0:
                 self.node_response.append( { 'ip': self.president['ip'] , 'port': self.president['port'] , 'index': self.president['index']} )
                 self.send_data(
                     ip=self.president['ip'] ,

@@ -23,7 +23,7 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 20
+    server_limit = 40
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
@@ -62,8 +62,8 @@ def enviroment():
                 avaliable:
                 server_limit -= 1
                 remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
@@ -79,12 +79,13 @@ def enviroment():
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 
-                # update_graph( nodes=chord_system , time=time )
+                update_graph( nodes=chord_system , time=time )
                 avaliable = False
             
             president =find_president(nodes=chord_system)
             
             if president is not None and not avaliable:
+                avaliable = True
                 remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
                 
             
@@ -96,7 +97,7 @@ def enviroment():
         
         t += 1
         
-        # s = report(nodes=chord_system , s=s , time = time.time() - start )
+        s = report(nodes=chord_system , s=s , time = time.time() - start )
         # ellapse_time(nodes=chord_system)
         # input()
     
