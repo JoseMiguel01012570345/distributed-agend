@@ -1,4 +1,4 @@
-import random
+import time
 import node
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -23,16 +23,19 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 40
+    server_limit = 20
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
     avaliable = True
     leaving_time = []
     
-    time = 1
+    start = time.time()
+    t = 1
     s=''
     while True:
+        
+        # os.system('cls')
         
         if len(entry_time) > 0: # testing entry node
             
@@ -58,38 +61,54 @@ def enviroment():
                 president.stabilization and \
                 avaliable:
                 server_limit -= 1
-                # remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
+                remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
-                remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
+                # remove_node(chord_system=chord_system , target={ 'ip': chord_system[-1].ip , 'port': chord_system[-1].port } )
                 
+                # update_graph( nodes=chord_system , time=time )
                 avaliable = False
+            
+            president =find_president(nodes=chord_system)
+            
+            if president is not None and not avaliable:
+                remove_node(chord_system=chord_system , target={ 'ip': president.ip , 'port': president.port } )
                 
-        send( chord_system , time=time )
+            
+                
+        send( chord_system , time=t )
         
         for element in chord_system: # recieve msg from origin
-            element.recv_data(clock=time)
+            element.recv_data(clock=t)
         
-        time += 1
-        # s = report(nodes=chord_system , s=s)
+        t += 1
+        
+        # s = report(nodes=chord_system , s=s , time = time.time() - start )
         # ellapse_time(nodes=chord_system)
         # input()
     
-    update_graph( nodes=chord_system , time=time )
-
 def ellapse_time(nodes):
     os.system('cls')
     for node in nodes:
         if node.answer_avaliabily():
             print(f'ip:{node.ip} port:{node.port} index:{node.index} --> ellapse time: {node.ellapse_time}')
-            
 
-def report(nodes , s):
+def report(nodes , s , time):
     
+    print(time)
     lider = find_president(nodes=nodes)
     str_report= f"_____number of nodes {lider.nodes_in_system}_____\n"
     for element in nodes:
