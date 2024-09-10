@@ -95,7 +95,7 @@ def set_date_editor(master):
         
         pass
     
-    DateFrame = Tk.Canvas(master,width=500,height=500,relief='groove')
+    DateFrame = Tk.Canvas(master,width=500,height=500,relief='groove',bg=rgb_to_hex(100,100,200))
     DateFrame.pack(side='top')
     
     now = gmtime()
@@ -118,12 +118,12 @@ def set_date_editor(master):
     SecondValue = Tk.IntVar(DateFrame)
     SecondValue.set(now.tm_sec)
     
-    YearLabel = Tk.Label(DateFrame,text='Year',font=AUTH_FONT)
-    MounthLabel = Tk.Label(DateFrame,text='Mounth',font=AUTH_FONT)
-    DayLabel = Tk.Label(DateFrame,text='Day',font=AUTH_FONT)
-    HourLabel = Tk.Label(DateFrame,text='Hour',font=AUTH_FONT)
-    MinuteLabel = Tk.Label(DateFrame,text='Minute',font=AUTH_FONT)
-    SecondLabel = Tk.Label(DateFrame,text='Second',font=AUTH_FONT)
+    YearLabel = Tk.Label(DateFrame,text='Year',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
+    MounthLabel = Tk.Label(DateFrame,text='Mounth',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
+    DayLabel = Tk.Label(DateFrame,text='Day',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
+    HourLabel = Tk.Label(DateFrame,text='Hour',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
+    MinuteLabel = Tk.Label(DateFrame,text='Minute',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
+    SecondLabel = Tk.Label(DateFrame,text='Second',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
     YearEntry = Tk.Spinbox(DateFrame,from_=0,to=3000,increment=1,textvariable=YearValue)
     MounthEntry = Tk.Spinbox(DateFrame,from_=1,to=12,increment=1,textvariable=MounthValue)
     DayEntry = Tk.Spinbox(DateFrame,from_=1,to=31,increment=1,textvariable=DayValue)
@@ -154,12 +154,12 @@ def set_description_editor(master):
     return DescriptionTexbox
 
 def set_controls(master,date_struct,description,activity,callback=None,father=None,view=None):
-    ControlsFrame = Tk.Canvas(master)
+    ControlsFrame = Tk.Canvas(master,bg=rgb_to_hex(100,100,200))
     ControlsFrame.pack(side='bottom')
     
-    MSGLabel = Tk.Label(ControlsFrame,text='')
-    save_btn = Tk.Button(ControlsFrame,text='Save',font=AUTH_FONT,command=lambda : save_activity(date_struct,description,MSGLabel,activity,callback,father,view))
-    cancel_btn = Tk.Button(ControlsFrame,text='Cancel',font=AUTH_FONT,command=lambda: cancel(master))
+    MSGLabel = Tk.Label(ControlsFrame,text='',bg=rgb_to_hex(100,100,200))
+    save_btn = Tk.Button(ControlsFrame,bg=rgb_to_hex(100,100,100),fg='white',text='Save',font=AUTH_FONT,command=lambda : save_activity(date_struct,description,MSGLabel,activity,callback,father,view))
+    cancel_btn = Tk.Button(ControlsFrame,bg=rgb_to_hex(100,100,100),fg='white',text='Cancel',font=AUTH_FONT,command=lambda: cancel(master))
     
     MSGLabel.grid(row=0,column=10,padx=5,pady=10)
     save_btn.grid(row=10,column=10,padx=15,pady=10)
@@ -208,12 +208,23 @@ class ActivityView(Tk.Toplevel):
     
     def __init__(self,father,activity,callback=None,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self._father = father
         self._callback = callback
         self.geometry(size)
         self.title('Editar')
+        self.config(bg=rgb_to_hex(100,100,200))
         self._date = set_date_editor(self)
         self._description = set_description_editor(self)
         set_controls(self,self._date,self._description,activity,callback,father,self)
+        self.protocol('WM_DELETE_WINDOW',lambda : self._close())
+        self.mainloop()
+        pass
+    
+    def _close(self):
+        if self._father:
+            self._father.deiconify()
+            pass
+        self.destroy()
         pass
     
     pass

@@ -8,12 +8,7 @@ import tkinter as Tk
 from frontend.fonts import *
 from string import whitespace
 
-global authenticated
-global message
-
 size = '800x400'
-authenticated = False
-message = ''
 
 def validate(username,password):
     
@@ -25,6 +20,7 @@ def validate(username,password):
             pass
 
         pass
+    
     
     if not type(username) == str or not type(password) == str:
         return validation_result(False,'"username" y "password" deben ser cadenas de caracteres')
@@ -48,48 +44,58 @@ def confirm(username,password):
         pass
     
     return auth_response(True,'OK')
-
-def log_in(username,password,auth_msg):
-    global authenticated
-    global message
     
-    val = validate(username,password)
-    if val.result:
-        log_result = confirm(username,password)
-        authenticated = log_result.result
-        message = log_result.message
+class AuthView(Tk.Tk):
+    
+    def __init__(self,url,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self._url = url
+        self._authenticated = False
+        self._msg = ''
+        self.geometry(size)
+        self.title('log in')
+        self._username = Tk.StringVar(self)
+        self._password = Tk.StringVar(self)
+        self._title_label = Tk.Label(self,text='Title',font=AUTH_FONT)
+        self._auth_msg_label = Tk.Label(self,text='')
+        self._auth_name_textbox = Tk.Entry(self,font=AUTH_FONT,text=self._username)
+        self._auth_password_textbox = Tk.Entry(self,font=AUTH_FONT,text=self._password)
+        self._log_btn = Tk.Button(self,text='Log in',font=AUTH_FONT,command=self._log_in)
+        self._show()
+        self.mainloop()
         pass
-    else:
-        authenticated = False
-        message = val.message
+ 
+    @property
+    def authenticated(self):
+        return self._authenticated
+    
+    @property
+    def message(self):
+        return self._msg
+    
+    def _show(self):
+        self._title_label.pack(side='top',pady=20)
+        self._auth_name_textbox.pack(side='top',pady=5)
+        self._auth_password_textbox.pack(side='top',pady=5)
+        self._auth_msg_label.pack(side='top',pady=5)
+        self._log_btn.pack(side='top',pady=20)
         pass
-    auth_msg.config(text=message)
-    pass        
     
-def run(url):
-    global authenticated
-    global message
+    def _log_in(self):
+        
+        val = validate(self._username.get(),self._password.get())
+        color = 'blue'
+        if val.result:
+            log_result = confirm(self._username.get(),self._password.get())
+            self._authenticated = log_result.result
+            self._msg = log_result.message
+            pass
+        else:
+            self._authenticated = False
+            self._msg = val.message
+            color = 'red'
+            pass
+        self._auth_msg_label.config(text=self._msg,fg=color)
+        pass
     
-    SCREEN = Tk.Tk()
-    SCREEN.geometry(size)
-    SCREEN.title('Log in')
-    UserName = Tk.StringVar(SCREEN)
-    Password = Tk.StringVar(SCREEN)
-
-    title = Tk.Label(SCREEN,text='Title',font=AUTH_FONT)
-    auth_msg_label = Tk.Label(SCREEN,text='')
-    
-    auth_name_textbox = Tk.Entry(SCREEN,font=AUTH_FONT,text=UserName)
-    auth_password_textbox = Tk.Entry(SCREEN,font=AUTH_FONT,text=Password)
-    
-    log_btn = Tk.Button(SCREEN,text='Log in',font=AUTH_FONT,command=lambda: log_in(UserName.get(),Password.get(),auth_msg_label))
-    
-    title.pack(side='top',pady=20)
-    auth_name_textbox.pack(side='top',pady=5)
-    auth_password_textbox.pack(side='top',pady=5)
-    auth_msg_label.pack(side='top',pady=5)
-    log_btn.pack(side='top',pady=20)
-
-    SCREEN.mainloop()
-    
-    return authenticated,message
+    pass
