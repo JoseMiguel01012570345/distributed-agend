@@ -53,9 +53,15 @@ class AgendItem:
 
 class MainView(Tk.Tk):
     
-    def __init__(self,agends=[],*args,**kwargs):
+    """
+    agends: list(Agend)
+    on_save_data_callback: func(list(Agend),Agend) -> bool (debe retornar true si el guardado de datos fue exitoso)
+    """
+    
+    def __init__(self,agends=[],on_save_data_callback=None,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.geometry(size)
+        self._on_save_data_callback = on_save_data_callback
+        self._center_win()
         self.title('Agends')
         self._Frame = Tk.Canvas(self,width=500,height=500,bg=rgb_to_hex(100,100,200))
         self._Frame.pack(side='left',padx=5,pady=5,expand=True,fill='both')
@@ -73,14 +79,31 @@ class MainView(Tk.Tk):
         self.config(bg=rgb_to_hex(100,100,200))
         self.mainloop()
         pass
-    
+
+    def _center_win(self):
+        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
+        width,height = int(size.split('x')[0]),int(size.split('x')[0])
+        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
+        self.geometry(f'{size}+{x}+{y}')
+        pass
+
     def _add_agend(self):
         
         def update(agend):
-            self._agends.append(agend)
-            AgendItem(self._View,agend,self)
-            self._View.update_idletasks()
-            self._Frame.configure(scrollregion=self._Frame.bbox('all'))
+            if self._on_save_data_callback:
+                if self._on_save_data_callback(agend):
+                    self._agends.append(agend)
+                    AgendItem(self._View,agend,self)
+                    self._View.update_idletasks()
+                    self._Frame.configure(scrollregion=self._Frame.bbox('all'))
+                    pass
+                pass
+            else:
+                self._agends.append(agend)
+                AgendItem(self._View,agend,self)
+                self._View.update_idletasks()
+                self._Frame.configure(scrollregion=self._Frame.bbox('all'))
+                pass
             pass
         
         self.withdraw()

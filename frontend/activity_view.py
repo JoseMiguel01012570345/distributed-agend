@@ -36,7 +36,10 @@ def finish(father,view):
     view.destroy()
     pass
 
-def cancel(master):
+def cancel(master,father=None):
+    if father:
+        father.deiconify()
+        pass
     master.destroy()
     pass
 
@@ -159,7 +162,7 @@ def set_controls(master,date_struct,description,activity,callback=None,father=No
     
     MSGLabel = Tk.Label(ControlsFrame,text='',bg=rgb_to_hex(100,100,200))
     save_btn = Tk.Button(ControlsFrame,bg=rgb_to_hex(100,100,100),fg='white',text='Save',font=AUTH_FONT,command=lambda : save_activity(date_struct,description,MSGLabel,activity,callback,father,view))
-    cancel_btn = Tk.Button(ControlsFrame,bg=rgb_to_hex(100,100,100),fg='white',text='Cancel',font=AUTH_FONT,command=lambda: cancel(master))
+    cancel_btn = Tk.Button(ControlsFrame,bg=rgb_to_hex(100,100,100),fg='white',text='Cancel',font=AUTH_FONT,command=lambda: cancel(master,father))
     
     MSGLabel.grid(row=0,column=10,padx=5,pady=10)
     save_btn.grid(row=10,column=10,padx=15,pady=10)
@@ -210,7 +213,7 @@ class ActivityView(Tk.Toplevel):
         super().__init__(*args,**kwargs)
         self._father = father
         self._callback = callback
-        self.geometry(size)
+        self._center_win()
         self.title('Editar')
         self.config(bg=rgb_to_hex(100,100,200))
         self._date = set_date_editor(self)
@@ -218,6 +221,13 @@ class ActivityView(Tk.Toplevel):
         set_controls(self,self._date,self._description,activity,callback,father,self)
         self.protocol('WM_DELETE_WINDOW',lambda : self._close())
         self.mainloop()
+        pass
+    
+    def _center_win(self):
+        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
+        width,height = int(size.split('x')[0]),int(size.split('x')[0])
+        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
+        self.geometry(f'{size}+{x}+{y}')
         pass
     
     def _close(self):

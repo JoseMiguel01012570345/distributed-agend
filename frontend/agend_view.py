@@ -13,12 +13,12 @@ size = '1200x600'
 
 class ActivityItem:
     
-    def __init__(self,master,activity,agend,root,on_delete_callback=None):
+    def __init__(self,master,activity,agend,root,on_save_data_callback=None):
         self._root = root
-        self._on_delete_callback = on_delete_callback
+        self._on_save_data_callback = on_save_data_callback
         self._master = master
         self._agend = agend
-        self._frame = Tk.Canvas(master,relief='solid',width=500,borderwidth=2)
+        self._frame = Tk.Canvas(master,relief='solid',width=200,borderwidth=2)
         self._activity = activity
         self._date_label = Tk.Label(self._frame,text='Fecha',font=AUTH_FONT)
         self._activity_date_label = Tk.Label(self._frame,text=activity.date,font=AUTH_FONT)
@@ -36,32 +36,48 @@ class ActivityItem:
     def _edit(self):
         
         def change_activity(old,new,act_label,desc_label,agend):
-            index = agend.activitys.index(old)
-            agend.activitys[index] = new
-            old = new
-            act_label.configure(text=new.date)
-            desc_label.configure(text=new.description)
-            pass
+            if self._on_save_data_callback:
+                if self._on_save_data_callback(self._agend):
+                    index = agend.activitys.index(old)
+                    agend.activitys[index] = new
+                    old = new
+                    act_label.configure(text=new.date)
+                    desc_label.configure(text=new.description)
+                    pass
+                pass
+            else:
+                index = agend.activitys.index(old)
+                agend.activitys[index] = new
+                old = new
+                act_label.configure(text=new.date)
+                desc_label.configure(text=new.description)
+                pass
         
         self._root.withdraw()
         ActivityView(self._root,self._activity,lambda activity: change_activity(self._activity,activity,self._activity_date_label,self._activity_description_label,self._agend))
         pass
     
     def _delete(self):
-        index = self._agend.activitys.index(self._activity)
-        self._agend.activitys.pop(index)
-        self.destroy()
-        if self._on_delete_callback:
-            self._on_delete_callback()
+        if self._on_save_data_callback:
+            if self._on_save_data_callback(self._agend):
+                index = self._agend.activitys.index(self._activity)
+                self._agend.activitys.pop(index)
+                self.destroy()
+                pass
+            pass
+        else:
+            index = self._agend.activitys.index(self._activity)
+            self._agend.activitys.pop(index)
+            self.destroy()
             pass
         pass
     
     def _show(self):
         self._frame.pack(side='top',pady=20,fill='both',expand=True)
-        self._date_label.pack(side='top',pady=5,padx=300)
-        self._activity_date_label.pack(side='top',pady=5,padx=300)
-        self._description_label.pack(side='top',pady=5,padx=300)
-        self._activity_description_label.pack(side='top',pady=5,padx=300)
+        self._date_label.pack(side='top',pady=5,padx=100)
+        self._activity_date_label.pack(side='top',pady=5,padx=100)
+        self._description_label.pack(side='top',pady=5,padx=100)
+        self._activity_description_label.pack(side='top',pady=5,padx=100)
         self._edit_btn.pack(side='left',pady=5,padx=20)
         self._delete_btn.pack(side='right',pady=5,padx=20)
         pass
@@ -109,17 +125,28 @@ class Agend:
     
     pass
 
-def set_agend_view(master,agend,root):
-    return [ActivityItem(master,activity,agend,root) for activity in agend.activitys]
+def set_agend_view(master,agend,root,on_save_data_callback=None):
+    return [ActivityItem(master,activity,agend,root,on_save_data_callback) for activity in agend.activitys]
 
-def create_activity(view_master,agend,root,view_frame,counter_label):
+def create_activity(view_master,agend,root,view_frame,counter_label,on_save_data_callback=None):
     
     def add_activity(activity):
-        activity = ActivityItem(view_master,activity,agend,root,lambda : update(counter_label,agend)).activity
-        agend.add(activity)
-        counter_label.config(text=f'Actividades programadas: {len(agend.activitys)}')
-        view_master.update_idletasks()
-        view_frame.configure(scrollregion=view_frame.bbox('all'))
+        if on_save_data_callback:
+            if on_save_data_callback(agend):
+                activity = ActivityItem(view_master,activity,agend,root,lambda : update(counter_label,agend)).activity
+                agend.add(activity)
+                counter_label.config(text=f'Actividades programadas: {len(agend.activitys)}')
+                view_master.update_idletasks()
+                view_frame.configure(scrollregion=view_frame.bbox('all'))
+                pass
+            pass
+        else:
+            activity = ActivityItem(view_master,activity,agend,root,lambda : update(counter_label,agend)).activity
+            agend.add(activity)
+            counter_label.config(text=f'Actividades programadas: {len(agend.activitys)}')
+            view_master.update_idletasks()
+            view_frame.configure(scrollregion=view_frame.bbox('all'))
+            pass
         pass
     
     root.withdraw()
@@ -130,7 +157,7 @@ def update(counter_label,agend):
     counter_label.config(text=f'Actividades programadas: {len(agend.activitys)}')
     pass
 
-def set_agend_header_view(master,agend,view=None,root=None,view_frame=None):
+def set_agend_header_view(master,agend,view=None,root=None,view_frame=None,on_save_data_callback=None):
     
     class packed_data:
         
@@ -149,7 +176,7 @@ def set_agend_header_view(master,agend,view=None,root=None,view_frame=None):
     OwnerLabel = Tk.Label(Frame,text=agend.owner,font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
     AgendGroup = Tk.Label(Frame,text=agend.group,font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
     ActivityLabel = Tk.Label(Frame,text=f'Actividades programadas: {len(agend.activitys)}',fg='white',font=AUTH_FONT,bg=rgb_to_hex(100,100,100))
-    add_activity_btn = Tk.Button(Frame,text='Add',font=AUTH_FONT,command=lambda : create_activity(view,agend,root,view_frame,ActivityLabel),bg=rgb_to_hex(100,100,100),fg='white')
+    add_activity_btn = Tk.Button(Frame,text='Add',font=AUTH_FONT,command=lambda : create_activity(view,agend,root,view_frame,ActivityLabel,on_save_data_callback),bg=rgb_to_hex(100,100,100),fg='white')
     
     Frame.pack(side='top',padx=5,pady=5)
     OwnerLabel.pack(side='top',padx=500,pady=10)
@@ -158,7 +185,7 @@ def set_agend_header_view(master,agend,view=None,root=None,view_frame=None):
     add_activity_btn.pack(side='top',padx=5,pady=10)
     return packed_data(group_label=AgendGroup)
 
-def set_window(root,agend):
+def set_window(root,agend,on_save_data_callback=None):
     
     class packed_data:
         
@@ -180,8 +207,8 @@ def set_window(root,agend):
     View = Tk.Frame(Frame,bg=rgb_to_hex(100,100,200))
     Frame.create_window((600,0),window=View,anchor='nw')
         
-    result = set_agend_header_view(View,agend,View,root,Frame)
-    set_agend_view(View,agend,root)
+    result = set_agend_header_view(View,agend,View,root,Frame,on_save_data_callback)
+    set_agend_view(View,agend,root,on_save_data_callback)
     
     View.update_idletasks()
     Frame.configure(scrollregion=Frame.bbox('all'))
@@ -189,15 +216,16 @@ def set_window(root,agend):
 
 class AgendView(Tk.Toplevel):
     
-    def __init__(self,agend,callback=None,root=None,*args,**kwargs):
+    def __init__(self,agend,callback=None,root=None,on_save_data_callback=None,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.config(bg=rgb_to_hex(100,100,200))
+        self._on_save_data_callback = on_save_data_callback
         self._root = root
         self._agend = agend
         self._on_back_btn_click_callback = callback
-        self.geometry(size)
+        self._center_win()
         self.title('Agend View')
-        self._data = set_window(self,agend)
+        self._data = set_window(self,agend,on_save_data_callback)
         self._back_btn = Tk.Button(self,text='Back',font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white',command=self._back)
         self._change_group_btn = Tk.Button(self,text='Change Group',font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white',command=self._change_group)
         self._change_group_btn.pack(side='bottom',pady=10,padx=10)
@@ -205,11 +233,25 @@ class AgendView(Tk.Toplevel):
         self.protocol('WM_DELETE_WINDOW',lambda : self._back())
         self.mainloop()
         pass
-    
+
+    def _center_win(self):
+        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
+        width,height = int(size.split('x')[0]),int(size.split('x')[0])
+        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
+        self.geometry(f'{size}+{x}+{y}')
+        pass
+  
     def _change_group(self):
         
         def update_group():
-            self._data.group_label.config(text=self._agend.group)
+            if self._on_save_data_callback:
+                if self._on_save_data_callback(self._agend):
+                    self._data.group_label.config(text=self._agend.group)
+                    pass
+                pass
+            else:
+                self._data.group_label.config(text=self._agend.group)
+                pass
             pass
         
         self.withdraw()
@@ -232,7 +274,7 @@ class AgendViewCreate(Tk.Toplevel):
         super().__init__(*args,**kwargs)
         self._root = root
         self._on_create_agend_callback = on_create_agend_callback
-        self.geometry('600x400')
+        self._center_win()
         self.title('Create Agend')
         self.config(bg=rgb_to_hex(100,100,200))
         self._create_agend_label = Tk.Label(self,text='Propietario',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
@@ -248,7 +290,14 @@ class AgendViewCreate(Tk.Toplevel):
         self._show()
         self.mainloop()
         pass
-    
+
+    def _center_win(self):
+        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
+        width,height = int(size.split('x')[0]),int(size.split('x')[0])
+        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
+        self.geometry(f'{size}+{x}+{y}')
+        pass
+
     def _update_group_textbox_state(self):
         if self._group_enable.get():
             self._group_textbox.config(state=Tk.NORMAL)
@@ -314,7 +363,7 @@ class AgendEditGroupView(Tk.Toplevel):
         self.config(bg=rgb_to_hex(100,100,200))
         self._canvas = Tk.Canvas(self)
         self._on_change_group_callback = on_change_group_callback
-        self.geometry('600x400')
+        self._center_win()
         self.title('Change Group')
         self._group_label = Tk.Label(self,text='Grupo',font=AUTH_FONT,bg=rgb_to_hex(100,100,200))
         self._group = Tk.StringVar(self._canvas)
@@ -325,7 +374,14 @@ class AgendEditGroupView(Tk.Toplevel):
         self._show()
         self.mainloop()
         pass
-    
+
+    def _center_win(self):
+        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
+        width,height = int(size.split('x')[0]),int(size.split('x')[0])
+        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
+        self.geometry(f'{size}+{x}+{y}')
+        pass
+
     def _validate(self,group):
         return len(group) > 0
     
