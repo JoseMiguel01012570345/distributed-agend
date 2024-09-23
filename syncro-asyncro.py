@@ -28,11 +28,9 @@ def enviroment():
     num_server = 0
     
     avaliable = True
-    leaving_time = []
     
-    start = time.time()
     t = 1
-    s=''
+    
     while True:
         
         # os.system('cls')
@@ -97,7 +95,7 @@ def enviroment():
         
         t += 1
         
-        s = report(nodes=chord_system , s=s , time = time.time() - start )
+        # s = report(nodes=chord_system , s=s , time = time.time() - start )
         # ellapse_time(nodes=chord_system)
         # input()
     
@@ -109,9 +107,8 @@ def ellapse_time(nodes):
 
 def report(nodes , s , time):
     
-    print(time)
     lider = find_president(nodes=nodes)
-    str_report= f"_____number of nodes {lider.nodes_in_system}_____\n"
+    str_report= f"_____number of nodes {lider.nodes_in_system}_____\n" if lider is not None else ''
     for element in nodes:
         if element.answer_avaliabily():
             fg = '' 
@@ -164,6 +161,7 @@ def update_graph( nodes:list , time:int ):
 def send( chord_system , time=0 ):
     mod = False
     
+    set_index = 0
     for element in chord_system: # delivery msg from origin to destination
         if len(element.env) > 0:
             while len(element.env) != 0:
@@ -172,11 +170,16 @@ def send( chord_system , time=0 ):
                 dest_ip = msg['ip']
                 dest_port = msg['port']
                 data = msg['data']
+                if data['action'] == 21:
+                    set_index += 1
                 data['origin'] = { 'ip': element.ip , 'port': element.port } # add origin to data
+                data['id'] = msg['id']
                 delivery_msg( nodes=chord_system , destination={ 'ip': dest_ip , 'port': dest_port } , data=data )
                 element.env.pop(0)
                 mod = True
     
+    
+    # print('set_index:' , set_index)
     return mod
 
 def delivery_msg( nodes , destination:node , data ):

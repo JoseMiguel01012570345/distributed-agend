@@ -1,9 +1,5 @@
-import time
 import math
-import psutil
-import sys
-import numpy as np
-import os 
+
 class node:
 
     '''
@@ -115,6 +111,8 @@ class node:
         self.aux_finger_table = []
         self.finish_indexing = False
         self.last_president = {}
+        self.app_queue = []
+        self.ring_queue = []
     
     def hello( self , data ):
         
@@ -295,13 +293,17 @@ class node:
         input()
         print( data['msg'] )
         
-    def send_data(self , ip , port , data=None ):
+    def send_data(self , ip , port , data=None , ring=True ):
         
         env = {}
         env['ip'] = ip
         env['port'] = port
         env['data'] = data
-              
+        env['id'] = self.encode_business_id('app')
+        
+        if ring:
+            env['id'] = self.encode_business_id('ring')
+        
         self.env.append( env )
         
     def interrumpt( self ):
@@ -336,10 +338,24 @@ class node:
             data = self.tasks[0]
             self.tasks.pop(0)
             
-            data_action = data['action']
-            action = self.actions[ self.decode_action(data_action) ]
-
-            action( data=data )
+            id_ = self.decode_business_id( data['id'] )
+            
+            if id_ == 'ring':
+                
+                self.ring_queue.append(data)
+                
+                
+                data = self.ring_queue[0]
+                self.ring_queue.pop(0)
+                
+                action = self.decode_action( data['action'] )
+                foo = self.actions[action]
+                
+                foo( data )
+                
+                continue
+            
+            self.app_queue.append(data)
         
         '''
         TOOD: split detect_falling_nodes method into a thread
@@ -348,6 +364,21 @@ class node:
         self.time = clock
         self.up_state()
         self.detect_falling_nodes()
+    
+    def ring_reciever(self):
+        
+        while len(self.ring_queue) != 0: # solve all ring tasks
+        
+            data = self.ring_queue[0]
+            self.ring_queue.pop(0)
+            
+            data_action = data['action']
+            action = self.actions[ self.decode_action(data_action) ]
+            
+            action( data=data )
+    
+    def app_server(self):
+        pass
     
     def update_sucessor(self , data ):
         
@@ -413,7 +444,18 @@ class node:
             self.finger_table.clear()
             self.finger_table = [ element for element in self.aux_finger_table ]
             self.broadcast(data=data)
+    
+    def neighbor_index_fixed(self):
+        pass
+    
+    def reconnect(self):
         
+        if self.stabilization: return
+            
+        
+        
+        pass
+    
     def give_ticket(self , data ):
         
         nodes_in_system = data['nodes_in_system']
@@ -432,6 +474,7 @@ class node:
                 'action': self.encode_action('set_index'),
                 'node': node ,
                 'nodes_in_system' : self.nodes_in_system ,
+                'count': 0 ,
             }
         )
         
@@ -444,12 +487,15 @@ class node:
                 'action': self.encode_action('set_index'),
                 'node': { 'ip': self.ip , 'port': self.port , 'index': self.index } ,
                 'nodes_in_system' : self.nodes_in_system ,
+                'count': 0 ,
                 }
             )
         
     def set_index( self , data ):
     
         if self.finish_indexing : return
+        
+        if data['count'] > self.nodes_in_system ** 2: return
             
         node = data['node']
         index = node['index']
@@ -494,7 +540,8 @@ class node:
                                 'nodes_in_system' : self.nodes_in_system
                                 }
                             )
-                    
+        
+        data['count'] += 1
         self.broadcast(data=data)
     
     def ask_index( self ): # ask to president for index
@@ -553,7 +600,6 @@ class node:
             
             self.broadcast(data=data)
             return
-        
             
     def broadcast(self , data , use_president= False ):
         
@@ -898,4 +944,27 @@ class node:
         }
         
         return actions[action_encoded]
+    
+    def decode_business_id( self , id ):
+        
+        
+        ids={
+            
+            0:'ring',
+            1:'app',
+            
+        }
+        
+        return ids[id]
+
+    def encode_business_id( self , id ):
+        
+        
+        ids={
+            
+            'ring': 0,
+            'app': 1,   
+        }
+        
+        return ids[id]
     
