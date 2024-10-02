@@ -94,8 +94,11 @@ class node:
             'finished': self.stable_nodes ,
             'completed': self.stable_nodes ,
             'stop_index_broadcasting': self.stop_index_broadcasting ,
+            'set_president_stabilzation': self.set_president_stabilzation ,
+            'president_stabilization_info': self.send_president_stabilization_info ,
             
         }
+        self.reconnecting = False
         self.num_stabilized_nodes = 1
         self.insertion_await = False
         self.hello_await = False
@@ -109,7 +112,7 @@ class node:
         self.given_index = -1
         self.index_setted = True
         self.aux_finger_table = []
-        self.finish_indexing = False
+        self.finish_indexing = True
         self.last_president = {}
         self.app_queue = []
         self.ring_queue = []
@@ -137,7 +140,7 @@ class node:
                 'msg' : 'deja la gracia' ,
                 
             } )
-            return 
+            return
         
         sucessor_ip = self.finger_table[0]['ip']
         sucessor_port = self.finger_table[0]['port']
@@ -277,12 +280,16 @@ class node:
         
         self.num_stabilized_nodes += 1
         
-        print(self.num_stabilized_nodes , self.nodes_in_system)
+        # print(self.num_stabilized_nodes , self.nodes_in_system)
+        
+        if nodes_in_system == 22 and 'index' in data:
+            print('index:',data['index'])
+        
         if self.num_stabilized_nodes == self.nodes_in_system:
             self.num_stabilized_nodes = 1
             self.stabilization = True
             self.finish_indexing = True
-            
+            self.distroy = False
             print('stabilized ring with: ', self.nodes_in_system , ' nodes')
             
             if len(self.missing_node) != 0:
@@ -427,6 +434,16 @@ class node:
         if not self.is_president() and self.president['ip'] is not None: # ask for index to president
             self.ask_index()
         
+        elif self.is_president():
+            self.set_index(
+                data={
+                'action': self.encode_action('set_index') ,
+                'count':0 ,
+                'nodes_in_system': self.nodes_in_system ,
+                'node': { 'ip': self.ip , 'port': self.port , 'index': self.index  }
+                }
+            )
+        
     def remove_node( self , node ): # remove a fallen node
         
         remove_ip = node['ip']
@@ -441,31 +458,84 @@ class node:
         if not self.finish_indexing:
             self.stabilization = True
             self.finish_indexing = True
+            self.distroy = False
             self.finger_table.clear()
             self.finger_table = [ element for element in self.aux_finger_table ]
             self.broadcast(data=data)
     
-    def neighbor_index_fixed(self):
-        pass
+    def get_president_stabilization(self):
+        
+        self.reconnecting = True
+        self.send_data(
+            ip=self.president['ip'],
+            port=self.president['port'],
+            data={ 
+                  
+                  'action': self.encode_action('president_stabilization_info') ,
+                  'node': { 'ip':self.ip , 'port': self.port } 
+                  
+                  }
+            )
     
-    def reconnect(self):
+    def set_president_stabilzation( self , data ):
         
-        if self.stabilization: return
+        president_stabilization = data['stabilization']
+        president_nodes_in_system = data['nodes_in_system']
+        
+        if president_stabilization and self.index >= president_nodes_in_system:
+                    
+            self.finish_indexing = True # finish indexing step
+            self.reconnect()
+            return
+        
+        self.reconnecting = False # if presindent is not stable , ring is not stable , so we are not reconnecting
+    
+    def reconnect(self): # reconnection to the ring because ring pushed node trying to stabilize
+         
+        del self.finger_table
+        self.index = None
+        self.finger_table = []
+        
+        self.retry( data={
             
+            'origin':{ 
+                'ip': self.president['ip'] , 'port':self.president['port'] 
+            }
+        } )
         
+    def send_president_stabilization_info( self , data ):
+        # send to requesting node stabilization information of the president , it is to say , state of the ring
         
-        pass
+        node = data['node']
+        
+        self.send_data(
+            ip=node['ip'],
+            port=node['port'],
+            data={ 
+                'action': self.encode_action('set_president_stabilzation') , 
+                'stabilization': self.stabilization ,
+                'nodes_in_system': self.nodes_in_system ,
+            }
+        )
+
+    def check_ring_stability( self ):
+        if not self.finish_indexing and not self.reconnecting and self.elected and not self.is_president():
+            self.get_president_stabilization()
     
     def give_ticket(self , data ):
+        
+        if not self.given_index < self.nodes_in_system : return
         
         nodes_in_system = data['nodes_in_system']
         if self.nodes_in_system < nodes_in_system: return # we do not acept old request based on the number of nodes in system
         
         node = data['node']
         self.given_index += 1
+        
         if self.given_index == self.index: # index can't be repeated
             self.given_index += 1
         
+        # print( 'nodes_in_system:' , self.nodes_in_system ,'indexes: ', self.given_index )
         node['index'] = self.given_index
         self.send_data( # retrieve index to node
             ip=node['ip'],
@@ -477,19 +547,6 @@ class node:
                 'count': 0 ,
             }
         )
-        
-        if self.given_index == self.nodes_in_system - 1:
-            self.num_stabilized_nodes = 1
-        
-        if not self.index_setted:
-            self.broadcast( # brodcast president profile
-                data={
-                'action': self.encode_action('set_index'),
-                'node': { 'ip': self.ip , 'port': self.port , 'index': self.index } ,
-                'nodes_in_system' : self.nodes_in_system ,
-                'count': 0 ,
-                }
-            )
         
     def set_index( self , data ):
     
@@ -523,21 +580,27 @@ class node:
                 if self.index != p: # if 'p' index is not in finger table
                     self.needed_nodes.append(p)
                     
-        elif index in self.needed_nodes:
-            
-            if index == self.index + 1: # adjust sucessor
-                self.sucessor = node
+        elif self.index_setted and index in self.needed_nodes:
                 
+            if index == ( self.index + 1 ) % self.nodes_in_system : # adjust sucessor
+                self.sucessor = node
+            
             self.aux_finger_table.append(node)
             self.needed_nodes.remove(index)
             
+            if self.is_president() and len(self.needed_nodes) == 0 :
+                self.finger_table.clear()
+                self.finger_table = [ element for element in self.aux_finger_table ]
+            
             if len(self.needed_nodes) == 0 and not self.is_president():
+                   
                 self.send_data(  # send finish response
                             ip=self.president['ip'] ,
                             port=self.president['port'] ,
                             data={
-                                "action": self.encode_action('finished') , 
-                                'nodes_in_system' : self.nodes_in_system
+                                "action": self.encode_action('finished') ,
+                                'nodes_in_system' : self.nodes_in_system ,
+                                'index': self.index ,
                                 }
                             )
         
@@ -587,6 +650,7 @@ class node:
             if president_index == self.president['index']: return
             
             if self.index == president_index:
+                self.hello_await = False
                 data = {
                     'action': self.encode_action('elected_president') ,
                     'president': { 'ip': self.ip , 'port': self.port , 'index': self.index } 
@@ -751,10 +815,8 @@ class node:
             return
         
         sucessor = self.sucessor
-        sucessor_index = [ element for element in self.finger_table 
-                            if element['ip'] == self.sucessor['ip'] and
-                            element['port'] == self.sucessor['port'] ][0]['index']
-                
+        sucessor_index = self.sucessor['index']
+        
         self.node_response = [] # empty waitting response list
         
         data = {
@@ -762,14 +824,18 @@ class node:
             'sucessor': { 
                 'ip' : sucessor['ip'] ,
                 'port': sucessor['port'] ,
-                'index': self.finger_table[sucessor_index]['index'] 
+                'index': sucessor_index 
                 },
             'inserted_node': node,
             'index': self.index + 1 ,
         }
         
         # new node is now my sucessor
-        self.finger_table[sucessor_index] = node
+        for i in range(len(self.finger_table)):
+            if self.finger_table[i]['ip'] == self.sucessor['ip'] and self.finger_table[i]['port'] == self.sucessor['port']:
+                self.finger_table[i] = node
+                break
+            
         self.sucessor = node
         
         self.send_data( self.president['ip'] , self.president['port'] , data=data )
@@ -818,7 +884,7 @@ class node:
     
     def detect_unknow_falling_nodes(self , response_time ):
         
-        if not self.is_president() or  self.stabilization or len(self.missing_node) == 0:
+        if not self.is_president() or self.stabilization or len(self.missing_node) == 0:
             return
         
         earliest_fall = sorted([ node['clock'] for node in self.missing_node ])[-1]
@@ -835,7 +901,9 @@ class node:
         
         if self.time % response_time != 0 or not self.answer_avaliabily():
             return
-            
+        
+        # self.check_ring_stability() # check every period of time , wheather node is in system
+        
         if len(self.node_response) != 0: # faulty nodes found
             
             
@@ -912,7 +980,10 @@ class node:
             'finished': 18 ,
             'give_ticket': 19 ,
             'stop_index_broadcasting': 20 ,
-            'set_index': 21
+            'set_index': 21,
+            'set_president_stabilzation': 22 ,
+            'president_stabilization_info' : 23 ,
+            
         }
         
         return actions[action]
@@ -941,6 +1012,8 @@ class node:
             19: 'give_ticket' ,
             20: 'stop_index_broadcasting' ,
             21: 'set_index' ,
+            22:'set_president_stabilzation' ,
+            23:'president_stabilization_info' ,
         }
         
         return actions[action_encoded]
@@ -967,4 +1040,5 @@ class node:
         }
         
         return ids[id]
+    
     

@@ -15,7 +15,7 @@ def enviroment():
     first_node.index = 0
     first_node.finger_table.append( { 'ip': first_node.ip , 'port':first_node.port , 'index':first_node.index } )
     first_node.nodes_in_system += 1
-    first_node.sucessor = { 'ip': first_node.ip , 'port': first_node.port }
+    first_node.sucessor = { 'ip': first_node.ip , 'port': first_node.port , 'index':0}
     
     chord_system.append(first_node)
     
@@ -23,14 +23,14 @@ def enviroment():
     president = { 'ip':first_node.ip , 'port':first_node.port , 'index':first_node.index }
     first_node.president = president
     
-    server_limit = 40
+    server_limit = 25
     entry_time = [ i for i in range(1,server_limit) ]
     num_server = 0
     
     avaliable = True
     
     t = 1
-    
+    s=''
     while True:
         
         # os.system('cls')
@@ -95,7 +95,7 @@ def enviroment():
         
         t += 1
         
-        # s = report(nodes=chord_system , s=s , time = time.time() - start )
+        s = report(nodes=chord_system , s=s)
         # ellapse_time(nodes=chord_system)
         # input()
     
@@ -105,7 +105,7 @@ def ellapse_time(nodes):
         if node.answer_avaliabily():
             print(f'ip:{node.ip} port:{node.port} index:{node.index} --> ellapse time: {node.ellapse_time}')
 
-def report(nodes , s , time):
+def report(nodes , s ):
     
     lider = find_president(nodes=nodes)
     str_report= f"_____number of nodes {lider.nodes_in_system}_____\n" if lider is not None else ''
@@ -115,7 +115,7 @@ def report(nodes , s , time):
             for item in element.finger_table :
                 fg +=f"{item}\n"
                 
-            str_report += f"-> ip:{element.ip} port:{element.port}  index:{element.index} '\n' {fg}"
+            str_report += f"-> ip:{element.ip} port:{element.port}  index:{element.index} stabilization: {element.stabilization}'\n' {fg} "
             str_report += "__________________________________\n"
     
     if s != str_report:
