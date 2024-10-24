@@ -202,8 +202,9 @@ class Node:
                         self._successor = self._ref
                         pass
                     pass
-                # if not self._predecessor:
-                    
+                if not self._predecessor:
+                    self._successor = self._ref
+                    pass
                 pass
             time.sleep(5)
             pass
