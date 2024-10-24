@@ -190,9 +190,20 @@ class Node:
                 pass
             except Exception as ex:
                 if self._predecessor and self._predecessor.check_predecessor():
-                    self._successor = self.find_successor(self._id)
-                    self._successor.notify(self._ref)
+                    temp = self._predecessor.predecessor
+                    while temp and not inbettwen(self._id,self._predecessor.id,temp.id):
+                        temp = temp.predecessor
+                        pass
+                    if temp:
+                        self._successor = temp
+                        self._successor.notify(self._ref)
+                        pass
+                    else:
+                        self._successor = self._ref
+                        pass
                     pass
+                # if not self._predecessor:
+                    
                 pass
             time.sleep(5)
             pass
