@@ -1,0 +1,227 @@
+"""
+an implementation of a chord's ring node
+"""
+
+from threading import Thread,Lock
+import socket
+from chord.hashers import sha1_hash
+from chord.chord_node_ref import NodeReference
+from utils import get_data_from_json,set_json_data_to_send,inbettwen,Color
+import logging
+from chord.chord_operations import Operation
+import time
+
+logging.basicConfig(level=logging.DEBUG,format='%(asctime)s [%(threadName)s] %(levelname)s: %(message)s')
+
+BUFFER_SIZE = 2048
+
+class Node:
+    
+    def __init__(self,address,table_size=8,hasher=sha1_hash):
+        self._host,self._port = address
+        self._id =  hasher(self._host,table_size)
+        self._predecessor = None
+        self._ref = NodeReference(address,table_size,hasher)
+        self._successor = self._ref
+        self._table_size = table_size
+        self._finger_table = [self._ref] * self._table_size
+        self._request_handlers = self._init_handlers()
+        Thread(target=self.server,daemon=True,name=f'SERVER NODE {self._id}').start()
+        Thread(target=self.logger,daemon=True,name=f'LOGGER NODE {self._id}').start()
+        Thread(target=self.fix_finger_table,daemon=True,name=f'SERVER NODE {self._id}').start()
+        Thread(target=self.stabilize,daemon=True,name=f'STABILIZER NODE {self._id}').start()
+        pass
+    
+    @property
+    def successor(self):
+        return self._successor
+    
+    @property
+    def predecessor(self):
+        return self._predecessor
+    
+    @property
+    def id(self):
+        return self._id
+    
+    @property
+    def host(self):
+        return self._host
+    
+    @property
+    def port(self):
+        return self._port
+    
+    def __str__(self):
+        return f'ID: {self._id}, IP: {self._host}, PORT: {self._port}'
+    
+    def __repr__(self):
+        return str(self)
+    
+    def _init_handlers(self):
+        return {
+            Operation.FIND_SUCCESSOR.value:self._handle_find_successor_request,
+            Operation.NOTIFY.value:self._handle_notify_request,
+            Operation.FIND_PREDECESSOR.value:self._hanlde_find_predecessor_request,
+            Operation.GET_SUCCESSOR.value:self._handle_get_successor_request,
+            Operation.GET_PREDECESSOR.value:self._handle_get_predecessor_request,
+            Operation.CLOSEST_PRECEDING_FINGER.value:self._handle_closest_preceding_finger_request,
+            Operation.CHECK_PREDECESSOR.value:self._handle_check_predecessor_request
+        }
+    
+    def notify(self,node):
+        if node.id == self._id:
+            return
+        self._predecessor = node
+        if self._successor.id == self._id:
+            self._successor = node
+            pass
+        pass
+    
+    def find_successor(self,key):
+        if self._successor.id == self._id:
+            return self._ref
+        # if self._predecessor and self._successor.id == self._predecessor.id:
+        #     if inbettwen(key,self._id,self._successor.id):
+        #         return self._successor
+        #     return self._ref
+        node = self.find_predecessor(key)
+        if node.id == self._id:
+            return self._successor
+        return node.successor
+        
+    def find_predecessor(self,key):
+        if inbettwen(key,self._id,self._successor.id) or self._successor.id == self._id:
+            return self._ref
+        if self._successor.id == self._id:
+            return self._ref
+        node = self.closest_preceding_finger(key)
+        # if self._predecessor and self._successor.id == self._predecessor.id:
+            #     if inbettwen(key,self._id,self._successor.id):
+        #         return self._ref
+        #     return self._successor
+        while not inbettwen(key,node.id,node.successor.id):
+            node = node.closest_preceding_finger(key)
+            pass
+        return node
+        
+    def closest_preceding_finger(self,key):
+        for i in range(len(self._finger_table) - 1,-1,-1):
+            if inbettwen(self._finger_table[i].id,self._id,key):
+                return self._finger_table[i]
+            pass
+        return self._ref
+    
+    def fix_finger_table(self):
+        while True:
+            for i in range(self._table_size):
+                self._finger_table[i] = self.find_successor((self._id + 2**i) % 2**self._table_size)
+                pass
+            time.sleep(5)
+            pass
+        pass
+    
+    def join(self,node):
+        self._successor = node.find_successor(self._id)
+        self._successor.notify(self._ref)
+        self._predecessor = self._successor.predecessor
+        if not self._predecessor or self._predecessor.id == self._id:
+            self._predecessor = self._successor
+            pass
+        else:
+            self._predecessor = self._successor.find_predecessor(self._id)
+            pass
+        pass
+    
+    def logger(self):
+        while True:
+            logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
+            for i in range(len(self._finger_table)):
+                print((self._id + 2**i)%2**self._table_size,self._finger_table[i])
+                pass
+            time.sleep(5)
+            pass
+        pass
+    
+    def stabilize(self):
+        while True:
+            logging.info(f'{Color.GREEN.value}STABILIZING NODE {self._id}{Color.RESET.value}')
+            if self._successor.id == self._id:
+                self._predecessor = None
+                pass
+            else:
+                temp = self._successor.predecessor
+                if temp and not temp.id == self._id:
+                    if inbettwen(temp.id,self._id,self._successor.id):
+                        self._successor = temp
+                        pass
+                    self._successor.notify(self._ref)
+                    pass
+                pass
+            if not self._predecessor:
+                predecessor = self.find_predecessor(self._id)
+                if not predecessor.id == self._id:
+                    self._predecessor = self._successor.find_predecessor(self._id)
+                    pass
+                pass
+            time.sleep(5)
+            pass
+        pass
+    
+    def server(self):
+        server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        server.bind((self._host,self._port))
+        server.listen(10)
+        
+        while True:
+            
+            conn,_ = server.accept()
+            json_data = conn.recv(BUFFER_SIZE)
+            data = get_data_from_json(json_data)
+            operation = data['operation']
+            data_ = data['data']
+            if operation in self._request_handlers.keys():
+                response = self._request_handlers[operation](**data_)
+                json_response = set_json_data_to_send(response)
+                conn.sendall(json_response)
+                pass
+            conn.close()
+            
+            pass
+        
+        pass
+        
+    def _handle_find_successor_request(self,**request):
+        key = request['id']
+        successor = self.find_successor(key)
+        return {'id':successor.id,'ip':successor.host,'port':successor.port}
+    
+    def _handle_notify_request(self,**request):
+        host = request['ip']
+        port = request['port']
+        node = NodeReference((host,port),self._table_size)
+        self.notify(node)
+        pass
+    
+    def _hanlde_find_predecessor_request(self,**request):
+        key = request['id']
+        predecessor = self.find_predecessor(key)
+        return {'id':predecessor.id,'ip':predecessor.host,'port':predecessor.port}
+    
+    def _handle_get_successor_request(self,**request):
+        return {'ip':self._successor.host,'port':self._successor.port}
+    
+    def _handle_get_predecessor_request(self,**request):
+        if not self._predecessor:
+            return {}
+        return {'ip':self._predecessor.host,'port':self._predecessor.port}
+    
+    def _handle_closest_preceding_finger_request(self,**request):
+        finger = self.closest_preceding_finger(request['id'])
+        return {'ip':finger.host,'port':finger.port}
+    
+    def _handle_check_predecessor_request(self,**request):
+        return {}
+    
+    pass
