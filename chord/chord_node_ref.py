@@ -84,4 +84,9 @@ class NodeReference:
             return True
         return False
     
+    def join(self,node):
+        data = {'ip':node.host,'port':node.port}
+        self._send_data(Operation.JOIN.value,data)
+        pass
+    
     pass

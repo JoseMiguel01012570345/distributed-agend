@@ -9,4 +9,5 @@ class Operation(Enum):
     GET_PREDECESSOR = 5
     CLOSEST_PRECEDING_FINGER = 6
     CHECK_PREDECESSOR = 7
+    JOIN = 8
     pass

@@ -30,6 +30,7 @@ class Node:
         Thread(target=self.logger,daemon=True,name=f'LOGGER NODE {self._id}').start()
         Thread(target=self.fix_finger_table,daemon=True,name=f'SERVER NODE {self._id}').start()
         Thread(target=self.stabilize,daemon=True,name=f'STABILIZER NODE {self._id}').start()
+        Thread(target=self.check_predecessor,daemon=True,name=f'CHECK PREDECESSOR NODE {self._id}').start()
         pass
     
     @property
@@ -66,7 +67,8 @@ class Node:
             Operation.GET_SUCCESSOR.value:self._handle_get_successor_request,
             Operation.GET_PREDECESSOR.value:self._handle_get_predecessor_request,
             Operation.CLOSEST_PRECEDING_FINGER.value:self._handle_closest_preceding_finger_request,
-            Operation.CHECK_PREDECESSOR.value:self._handle_check_predecessor_request
+            Operation.CHECK_PREDECESSOR.value:self._handle_check_predecessor_request,
+            Operation.JOIN.value:self._handle_join_request
         }
     
     def notify(self,node):
@@ -91,19 +93,22 @@ class Node:
         return node.successor
         
     def find_predecessor(self,key):
-        if inbettwen(key,self._id,self._successor.id) or self._successor.id == self._id:
+        try:
+            if inbettwen(key,self._id,self._successor.id) or self._successor.id == self._id:
+                return self._ref
+            if self._successor.id == self._id:
+                return self._ref
+            node = self.closest_preceding_finger(key)
+            # if self._predecessor and self._successor.id == self._predecessor.id:
+                #     if inbettwen(key,self._id,self._successor.id):
+            #         return self._ref
+            #     return self._successor
+            while not inbettwen(key,node.id,node.successor.id):
+                node = node.closest_preceding_finger(key)
+                pass
+            return node
+        except Exception as ex:
             return self._ref
-        if self._successor.id == self._id:
-            return self._ref
-        node = self.closest_preceding_finger(key)
-        # if self._predecessor and self._successor.id == self._predecessor.id:
-            #     if inbettwen(key,self._id,self._successor.id):
-        #         return self._ref
-        #     return self._successor
-        while not inbettwen(key,node.id,node.successor.id):
-            node = node.closest_preceding_finger(key)
-            pass
-        return node
         
     def closest_preceding_finger(self,key):
         for i in range(len(self._finger_table) - 1,-1,-1):
@@ -115,7 +120,11 @@ class Node:
     def fix_finger_table(self):
         while True:
             for i in range(self._table_size):
-                self._finger_table[i] = self.find_successor((self._id + 2**i) % 2**self._table_size)
+                try:
+                    self._finger_table[i] = self.find_successor((self._id + 2**i) % 2**self._table_size)
+                    pass
+                except Exception as ex:
+                    pass
                 pass
             time.sleep(5)
             pass
@@ -133,6 +142,19 @@ class Node:
             pass
         pass
     
+    def check_predecessor(self):
+        while True:
+            try:
+                if self._predecessor and not self._predecessor.check_predecessor():
+                    self._predecessor = None
+                    pass
+                pass
+            except Exception as ex:
+                pass
+            time.sleep(5)
+            pass
+        pass
+    
     def logger(self):
         while True:
             logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
@@ -146,22 +168,30 @@ class Node:
     def stabilize(self):
         while True:
             logging.info(f'{Color.GREEN.value}STABILIZING NODE {self._id}{Color.RESET.value}')
-            if self._successor.id == self._id:
-                self._predecessor = None
-                pass
-            else:
-                temp = self._successor.predecessor
-                if temp and not temp.id == self._id:
-                    if inbettwen(temp.id,self._id,self._successor.id):
-                        self._successor = temp
+            try:
+                if self._successor.id == self._id:
+                    self._predecessor = None
+                    pass
+                else:
+                    temp = self._successor.predecessor
+                    if temp and not temp.id == self._id:
+                        if inbettwen(temp.id,self._id,self._successor.id):
+                            self._successor = temp
+                            pass
+                        self._successor.notify(self._ref)
                         pass
-                    self._successor.notify(self._ref)
+                    pass
+                if not self._predecessor and not self._successor.id == self._id:
+                    predecessor = self._successor.find_predecessor(self._id)
+                    if predecessor:
+                        self.notify(predecessor)
+                        pass
                     pass
                 pass
-            if not self._predecessor:
-                predecessor = self.find_predecessor(self._id)
-                if not predecessor.id == self._id:
-                    self._predecessor = self._successor.find_predecessor(self._id)
+            except Exception as ex:
+                if self._predecessor and self._predecessor.check_predecessor():
+                    self._successor = self.find_successor(self._id)
+                    self._successor.notify(self._ref)
                     pass
                 pass
             time.sleep(5)
@@ -222,6 +252,11 @@ class Node:
         return {'ip':finger.host,'port':finger.port}
     
     def _handle_check_predecessor_request(self,**request):
-        return {}
+        return {'response':'OK'}
+    
+    def _handle_join_request(self,**request):
+        ref = NodeReference((request['ip'],request['port']),self._table_size)
+        self.join(ref)
+        return {'response':'OK'}
     
     pass
