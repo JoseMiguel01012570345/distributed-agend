@@ -116,6 +116,9 @@ class Node:
     def notify(self,node):
         if node.id == self._id:
             return
+        if self._predecessor:
+            self.discard_predecessor_data()
+            pass
         self._predecessor = node
         if self._successor.id == self._id:
             self._successor = node
@@ -189,6 +192,7 @@ class Node:
         while True:
             try:
                 if self._predecessor and not self._predecessor.check_predecessor():
+                    self.collect_predecessor_data()
                     self._predecessor = None
                     if self._predecessor.id == self._leader.id:
                         self.start_leader_selection()
@@ -237,16 +241,62 @@ class Node:
             pass
         pass
     
-    def collect_data(self):
-        folder = self._path.joinpath(f'data_{self._id}')
-        data = {}
-        for file in folder.iterdir():
-            node = int(file.name.split('.')[0])
-            f = open(f'{file}','r')
-            content = f.read()
-            f.close()
-            data[node] = json.loads(content)
+    def discard_predecessor_data(self):
+        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
+        os.remove(f'{file}')
+        pass
+    
+    def discard_successor_data(self):
+        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
+        os.remove(f'{file}')
+        pass
+    
+    def collect_predecessor_data(self):
+        my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        f = open(f'{my_file}','r')
+        data = json.loads(f.read())
+        f.close()
+        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
+        f = open(f'{file}','r')
+        data_ = json.loads(f.read())
+        f.close()
+        for field in data_.keys():
+            for d in data_[field].keys():
+                data[field][d] = data_[field][d]
+                pass
             pass
+        os.remove(f'{file}')
+        f = open(f'{my_file}','w')
+        f.write(json.dumps(data))
+        f.close()
+        pass
+    
+    def collect_successor_data(self):
+        my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        f = open(f'{my_file}','r')
+        data = json.loads(f.read())
+        f.close()
+        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
+        f = open(f'{file}','r')
+        data_ = json.loads(f.read())
+        f.close()
+        for field in data_.keys():
+            for d in data_[field].keys():
+                data[field][d] = data_[field][d]
+                pass
+            pass
+        os.remove(f'{file}')
+        f = open(f'{my_file}','w')
+        f.write(json.dumps(data))
+        f.close()
+        pass
+    
+    def collect_data(self):
+        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        f = open(f'{file}','r')
+        my_data = json.loads(f.read())
+        f.close()
+        data = {self._id:my_data}
         return data
     
     def replicate_data(self):
