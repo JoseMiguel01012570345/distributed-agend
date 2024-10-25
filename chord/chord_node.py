@@ -10,6 +10,10 @@ from utils import get_data_from_json,set_json_data_to_send,inbettwen,Color
 import logging
 from chord.chord_operations import Operation
 import time
+from pathlib import Path
+import os
+import json
+
 
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s [%(threadName)s] %(levelname)s: %(message)s')
 
@@ -18,6 +22,7 @@ BUFFER_SIZE = 2048
 class Node:
     
     def __init__(self,address,table_size=8,hasher=sha1_hash):
+        self._path = Path()
         self._host,self._port = address
         self._id =  hasher(str(address),table_size)
         self._predecessor = None
@@ -27,12 +32,14 @@ class Node:
         self._finger_table = [self._ref] * self._table_size
         self._request_handlers = self._init_handlers()
         self._leader = self._ref
+        self._init_data_store()
         Thread(target=self.server,daemon=True,name=f'SERVER NODE {self._id}').start()
         Thread(target=self.logger,daemon=True,name=f'LOGGER NODE {self._id}').start()
         Thread(target=self.fix_finger_table,daemon=True,name=f'SERVER NODE {self._id}').start()
         Thread(target=self.stabilize,daemon=True,name=f'STABILIZER NODE {self._id}').start()
         Thread(target=self.check_predecessor,daemon=True,name=f'CHECK PREDECESSOR NODE {self._id}').start()
         Thread(target=self.discover_network,daemon=True,name=f'DISCOVER NETWORK NODE {self._id}').start()
+        Thread(target=self.replicate_data,daemon=True,name=f'REPLICATE DATA NODE {self._id}').start()
         pass
     
     @property
@@ -61,6 +68,17 @@ class Node:
     def __repr__(self):
         return str(self)
     
+    def _init_data_store(self):
+        if not self._path.joinpath(f'data_{self._id}').exists():
+            os.mkdir(f'data_{self._id}')
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+            f = open(str(file),'w')
+            content = {'groups':[],'agends':[],'users':[]}
+            f.write(json.dumps(content))
+            f.close()
+            pass
+        pass
+    
     def _init_handlers(self):
         return {
             Operation.FIND_SUCCESSOR.value:self._handle_find_successor_request,
@@ -73,7 +91,8 @@ class Node:
             Operation.JOIN.value:self._handle_join_request,
             Operation.SELECT_LEADER.value:self._handle_select_leader_request,
             Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request,
-            Operation.GET_LEADER.value:self._handle_get_leader_request
+            Operation.GET_LEADER.value:self._handle_get_leader_request,
+            Operation.STORE_DATA.value:self._handle_store_data_request
         }
     
     def notify(self,node):
@@ -188,6 +207,44 @@ class Node:
             time.sleep(5)
             pass
         pass
+    
+    def store_data(self,data):
+        for key in data.keys():
+            if int(key) == self._id: continue
+            path = self._path.joinpath(f'data_{self._id}').joinpath(f'{key}.json')
+            file = open(f'{path}','w')
+            content = json.dumps(data[key])
+            file.write(content)
+            file.close()
+            pass
+        pass
+    
+    def collect_data(self):
+        folder = self._path.joinpath(f'data_{self._id}')
+        data = {}
+        for file in folder.iterdir():
+            node = int(file.name.split('.')[0])
+            f = open(f'{file}','r')
+            content = f.read()
+            f.close()
+            data[node] = json.loads(content)
+            pass
+        return data
+    
+    def replicate_data(self):
+        while True:
+            data = self.collect_data()
+            try:
+                if not self._successor.id == self._id:
+                    self._successor.store_data(data)
+                    pass
+                pass
+            except Exception as ex:
+                pass
+            time.sleep(10)
+            pass
+        pass
+    
     def logger(self):
         while True:
             logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
@@ -350,5 +407,9 @@ class Node:
     
     def _handle_get_leader_request(self,**request):
         return {'ip':self._leader.host,'port':self._leader.port}
+    
+    def _handle_store_data_request(self,**request):
+        self.store_data(request)
+        return {'response':'OK'}
     
     pass

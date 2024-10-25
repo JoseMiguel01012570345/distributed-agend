@@ -104,5 +104,9 @@ class NodeReference:
         data = {'ip':node.host,'port':node.port,'start':start_id}
         self._send_data(Operation.NOTIFY_LEADER.value,data)
         pass
+    
+    def store_data(self,data):
+        self._send_data(Operation.STORE_DATA.value,data)
+        pass
         
     pass

@@ -26,7 +26,7 @@ if ip and port:
         pass
     pass
 else:
-    node = Node(('127.0.0.1',8001))
+    node = Node(('127.0.0.1',8002))
     # ref = NodeReference(('127.0.0.1',8001))
     # node.join(ref)
     pass

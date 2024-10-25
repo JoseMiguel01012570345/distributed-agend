@@ -14,4 +14,5 @@ class Operation(Enum):
     NOTIFY_LEADER = 10
     BROADCAST_DISCOVER = 11
     GET_LEADER = 12
+    STORE_DATA = 13
     pass
