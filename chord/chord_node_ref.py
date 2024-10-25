@@ -55,6 +55,7 @@ class NodeReference:
             client.connect((self._host,self._port))
             client.sendall(json_data)
             json_response = client.recv(BUFFER_SIZE)
+            client.close()
             return get_data_from_json(json_response)
         except Exception as ex:
             return None
@@ -89,4 +90,14 @@ class NodeReference:
         self._send_data(Operation.JOIN.value,data)
         pass
     
+    def select_leader(self,node,start_id):
+        data = {'leader_id':node.id,'ip':node.host,'port':node.port,'start':start_id}
+        self._send_data(Operation.SELECT_LEADER.value,data)
+        pass
+    
+    def notify_leader(self,node,start_id):
+        data = {'ip':node.host,'port':node.port,'start':start_id}
+        self._send_data(Operation.NOTIFY_LEADER.value,data)
+        pass
+        
     pass

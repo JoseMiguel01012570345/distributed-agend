@@ -26,6 +26,7 @@ class Node:
         self._table_size = table_size
         self._finger_table = [self._ref] * self._table_size
         self._request_handlers = self._init_handlers()
+        self._leader = self._ref
         Thread(target=self.server,daemon=True,name=f'SERVER NODE {self._id}').start()
         Thread(target=self.logger,daemon=True,name=f'LOGGER NODE {self._id}').start()
         Thread(target=self.fix_finger_table,daemon=True,name=f'SERVER NODE {self._id}').start()
@@ -68,7 +69,9 @@ class Node:
             Operation.GET_PREDECESSOR.value:self._handle_get_predecessor_request,
             Operation.CLOSEST_PRECEDING_FINGER.value:self._handle_closest_preceding_finger_request,
             Operation.CHECK_PREDECESSOR.value:self._handle_check_predecessor_request,
-            Operation.JOIN.value:self._handle_join_request
+            Operation.JOIN.value:self._handle_join_request,
+            Operation.SELECT_LEADER.value:self._handle_select_leader_request,
+            Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request
         }
     
     def notify(self,node):
@@ -140,6 +143,7 @@ class Node:
         else:
             self._predecessor = self._successor.find_predecessor(self._id)
             pass
+        self.start_leader_selection()
         pass
     
     def check_predecessor(self):
@@ -147,6 +151,9 @@ class Node:
             try:
                 if self._predecessor and not self._predecessor.check_predecessor():
                     self._predecessor = None
+                    if self._predecessor.id == self._leader.id:
+                        self.start_leader_selection()
+                        pass
                     pass
                 pass
             except Exception as ex:
@@ -155,12 +162,18 @@ class Node:
             pass
         pass
     
+    def start_leader_selection(self):
+        self._successor.select_leader(self._ref,self._id)
+        pass
+    
     def logger(self):
         while True:
             logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
             for i in range(len(self._finger_table)):
                 print((self._id + 2**i)%2**self._table_size,self._finger_table[i])
                 pass
+            if self._leader.id == self._id:
+                logging.info(f'{Color.BLUE.value}NODE {self._id} LEADER{Color.RESET.value}')
             time.sleep(5)
             pass
         pass
@@ -189,6 +202,7 @@ class Node:
                     pass
                 pass
             except Exception as ex:
+                start_select_leader = self._successor.id == self._leader.id
                 if self._predecessor and self._predecessor.check_predecessor():
                     temp = self._predecessor.predecessor
                     while temp and not inbettwen(self._id,self._predecessor.id,temp.id):
@@ -204,6 +218,9 @@ class Node:
                     pass
                 if not self._predecessor:
                     self._successor = self._ref
+                    pass
+                if start_select_leader:
+                    self.start_leader_selection()
                     pass
                 pass
             time.sleep(5)
@@ -224,9 +241,17 @@ class Node:
             operation = data['operation']
             data_ = data['data']
             if operation in self._request_handlers.keys():
-                response = self._request_handlers[operation](**data_)
-                json_response = set_json_data_to_send(response)
-                conn.sendall(json_response)
+                if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value]:
+                    response = self._request_handlers[operation](**data_)
+                    json_response = set_json_data_to_send(response)
+                    conn.sendall(json_response)
+                    pass
+                else:
+                    response = {'response':'OK'}
+                    json_response = set_json_data_to_send(response)
+                    conn.sendall(json_response)
+                    self._request_handlers[operation](**data_)
+                    pass
                 pass
             conn.close()
             
@@ -271,4 +296,31 @@ class Node:
         self.join(ref)
         return {'response':'OK'}
     
+    def _handle_notify_leader_request(self,**request):
+        leader_ip = request['ip']
+        leader_port = request['port']
+        start = request['start']
+        self._leader = NodeReference((leader_ip,leader_port),self._table_size)
+        if not start == self._id:
+            self._successor.notify_leader(self._leader,start)
+            pass
+        pass
+    
+    def _handle_select_leader_request(self,**request):
+        leader_id = request['leader_id']
+        leader_ip = request['ip']
+        leader_port = request['port']
+        start = request['start']
+        if self._id > leader_id:
+            self._successor.select_leader(self._ref,start)
+            pass
+        elif start == self._id:
+            self._leader = NodeReference((leader_ip,leader_port),self._table_size)
+            self._successor.notify_leader(self._leader,self._id)
+            pass
+        else:
+            self._successor.select_leader(NodeReference((leader_ip,leader_port),self._table_size),start)
+            pass
+        return {'ip':self._leader.host,'port':self._leader.port}
+        
     pass

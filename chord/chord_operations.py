@@ -10,4 +10,6 @@ class Operation(Enum):
     CLOSEST_PRECEDING_FINGER = 6
     CHECK_PREDECESSOR = 7
     JOIN = 8
+    SELECT_LEADER = 9
+    NOTIFY_LEADER = 10
     pass
