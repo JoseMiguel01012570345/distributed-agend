@@ -19,7 +19,7 @@ class Node:
     
     def __init__(self,address,table_size=8,hasher=sha1_hash):
         self._host,self._port = address
-        self._id =  hasher(self._host,table_size)
+        self._id =  hasher(str(address),table_size)
         self._predecessor = None
         self._ref = NodeReference(address,table_size,hasher)
         self._successor = self._ref
@@ -32,6 +32,7 @@ class Node:
         Thread(target=self.fix_finger_table,daemon=True,name=f'SERVER NODE {self._id}').start()
         Thread(target=self.stabilize,daemon=True,name=f'STABILIZER NODE {self._id}').start()
         Thread(target=self.check_predecessor,daemon=True,name=f'CHECK PREDECESSOR NODE {self._id}').start()
+        Thread(target=self.discover_network,daemon=True,name=f'DISCOVER NETWORK NODE {self._id}').start()
         pass
     
     @property
@@ -71,7 +72,8 @@ class Node:
             Operation.CHECK_PREDECESSOR.value:self._handle_check_predecessor_request,
             Operation.JOIN.value:self._handle_join_request,
             Operation.SELECT_LEADER.value:self._handle_select_leader_request,
-            Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request
+            Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request,
+            Operation.GET_LEADER.value:self._handle_get_leader_request
         }
     
     def notify(self,node):
@@ -166,6 +168,26 @@ class Node:
         self._successor.select_leader(self._ref,self._id)
         pass
     
+    def discover_network(self):
+        while True:
+            if self._leader.id == self._id:
+                for i in range(8001,9000):
+                    client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                    try:
+                        client.connect((self._host,i))
+                        client.close()
+                        node = NodeReference((self._host,i),self._table_size)
+                        if not node.id == self._id and node.leader.id > self._id:
+                            self.join(node)
+                            break
+                        pass
+                    except Exception as ex:
+                        pass
+                    pass
+                pass
+            time.sleep(5)
+            pass
+        pass
     def logger(self):
         while True:
             logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
@@ -234,31 +256,34 @@ class Node:
         server.listen(10)
         
         while True:
-            
-            conn,_ = server.accept()
-            json_data = conn.recv(BUFFER_SIZE)
-            data = get_data_from_json(json_data)
-            operation = data['operation']
-            data_ = data['data']
-            if operation in self._request_handlers.keys():
-                if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value]:
-                    response = self._request_handlers[operation](**data_)
-                    json_response = set_json_data_to_send(response)
-                    conn.sendall(json_response)
+            try:
+                conn,_ = server.accept()
+                json_data = conn.recv(BUFFER_SIZE)
+                data = get_data_from_json(json_data)
+                operation = data['operation']
+                data_ = data['data']
+                if operation in self._request_handlers.keys():
+                    if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value]:
+                        response = self._request_handlers[operation](**data_)
+                        json_response = set_json_data_to_send(response)
+                        conn.sendall(json_response)
+                        pass
+                    else:
+                        response = {'response':'OK'}
+                        json_response = set_json_data_to_send(response)
+                        conn.sendall(json_response)
+                        self._request_handlers[operation](**data_)
+                        pass
                     pass
-                else:
-                    response = {'response':'OK'}
-                    json_response = set_json_data_to_send(response)
-                    conn.sendall(json_response)
-                    self._request_handlers[operation](**data_)
-                    pass
+                conn.close()
                 pass
-            conn.close()
+            except Exception as ex:
+                pass
             
             pass
         
         pass
-        
+    
     def _handle_find_successor_request(self,**request):
         key = request['id']
         successor = self.find_successor(key)
@@ -322,5 +347,8 @@ class Node:
             self._successor.select_leader(NodeReference((leader_ip,leader_port),self._table_size),start)
             pass
         return {'ip':self._leader.host,'port':self._leader.port}
-        
+    
+    def _handle_get_leader_request(self,**request):
+        return {'ip':self._leader.host,'port':self._leader.port}
+    
     pass

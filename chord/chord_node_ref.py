@@ -13,10 +13,10 @@ class NodeReference:
     
     def __init__(self,address,table_size=8,hasher=sha1_hash):
         self._host,self._port = address
-        self._id = hasher(self._host,table_size)
+        self._id = hasher(str(address),table_size)
         self._table_size = table_size
         pass
-
+    
     @property
     def successor(self):
         successor = self._send_data(Operation.GET_SUCCESSOR.value,{})
@@ -28,6 +28,11 @@ class NodeReference:
         if len(predecessor.keys()) == 0:
             return None
         return NodeReference((predecessor['ip'],predecessor['port']),self._table_size)
+    
+    @property
+    def leader(self):
+        leader = self._send_data(Operation.GET_LEADER.value,{})
+        return NodeReference((leader['ip'],leader['port']),self._table_size)
     
     @property
     def id(self):

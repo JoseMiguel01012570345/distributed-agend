@@ -12,4 +12,6 @@ class Operation(Enum):
     JOIN = 8
     SELECT_LEADER = 9
     NOTIFY_LEADER = 10
+    BROADCAST_DISCOVER = 11
+    GET_LEADER = 12
     pass
