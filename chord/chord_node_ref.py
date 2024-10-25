@@ -108,5 +108,9 @@ class NodeReference:
     def store_data(self,data):
         self._send_data(Operation.STORE_DATA.value,data)
         pass
+    
+    def find_user(self,username,password,start_id):
+        response = self._send_data(Operation.FIND_USER.value,{'username':username,'password':password,'start':start_id})
+        return response
         
     pass

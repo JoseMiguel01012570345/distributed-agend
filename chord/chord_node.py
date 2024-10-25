@@ -73,7 +73,7 @@ class Node:
             os.mkdir(f'data_{self._id}')
             file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
             f = open(str(file),'w')
-            content = {'groups':[],'agends':[],'users':[]}
+            content = {'groups':{},'agends':{},'users':{},'events':{}}
             f.write(json.dumps(content))
             f.close()
             pass
@@ -92,8 +92,26 @@ class Node:
             Operation.SELECT_LEADER.value:self._handle_select_leader_request,
             Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request,
             Operation.GET_LEADER.value:self._handle_get_leader_request,
-            Operation.STORE_DATA.value:self._handle_store_data_request
+            Operation.STORE_DATA.value:self._handle_store_data_request,
+            Operation.FIND_USER.value:self._handle_find_user_request
         }
+    
+    def find_user(self,username,password,start_id):
+        path = self._path.joinpath(f'data_{self._id}')
+        for file in path.iterdir():
+            f = open(f'{file}','r')
+            data = json.loads(f.read())
+            f.close()
+            if username in data['users'].keys():
+                return {'status':data['users'][username] == password}
+            pass
+        if self._successor.id != self._id:
+            try:
+                return self._successor.find_user(username,password,start_id)
+            except Exception as ex:
+                return {'status':False}
+            pass
+        return {'status':False}
     
     def notify(self,node):
         if node.id == self._id:
@@ -412,4 +430,12 @@ class Node:
         self.store_data(request)
         return {'response':'OK'}
     
+    def _handle_find_user_request(self,**request):
+        username = request['username']
+        password = request['password']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':False}
+        return self.find_user(username,password,start_id)
+        
     pass

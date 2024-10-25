@@ -15,4 +15,5 @@ class Operation(Enum):
     BROADCAST_DISCOVER = 11
     GET_LEADER = 12
     STORE_DATA = 13
+    FIND_USER = 14
     pass
