@@ -3,8 +3,11 @@ from time import gmtime
 
 class ActivityView(tk.Toplevel):
     
-    def __init__(self,root,server,*args,**kwargs):
+    def __init__(self,root,server,agend_id,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self._root = root
+        self.server = server
+        self._agend_id = agend_id
         self.title('Activity View')
         self.geometry('1600x800')
         self._Frame = tk.Frame(self)
@@ -55,13 +58,42 @@ class ActivityView(tk.Toplevel):
         self._buttons_frame = tk.Canvas(self)
         self._buttons_frame.pack(side=tk.BOTTOM)
         
-        self._create_activity_btn = tk.Button(self._buttons_frame,text='Create')
-        self._cancel_btn = tk.Button(self._buttons_frame,text='Cancel')
+        self._create_activity_btn = tk.Button(self._buttons_frame,text='Create',command=self.create_activity)
+        self._cancel_btn = tk.Button(self._buttons_frame,text='Cancel',command=self.cancel)
         self._create_activity_btn.pack(side=tk.LEFT,pady=10,padx=10)
         self._cancel_btn.pack(side=tk.RIGHT,pady=10,padx=10)
         
+        self.protocol('WM_DELETE_WINDOW',self.cancel)
+        
         self.mainloop()
         
+        pass
+    
+    def cancel(self):
+        self.destroy()
+        self._root.deiconify()
+        pass
+    
+    @property
+    def date(self):
+        year = self._year.get()
+        mounth = self._mounth.get()
+        day = self._day.get()
+        hour = self._hour.get()
+        minute = self._minute.get()
+        seconds = self._seconds.get()
+        
+        return f'{year}:{mounth}:{day}  {hour}:{minute}:{seconds}'
+    
+    @property
+    def description(self):
+        return self._description_textbox.get('1.0',tk.END)
+    
+    def create_activity(self):
+        self.server.create_event(self._agend_id,self.date,self.description)
+        self.destroy()
+        self._root.deiconify()
+        self._root.update_view()
         pass
     
     def _init_time(self):

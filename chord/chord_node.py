@@ -95,7 +95,8 @@ class Node:
             Operation.STORE_DATA.value:self._handle_store_data_request,
             Operation.FIND_USER.value:self._handle_find_user_request,
             Operation.GET_ALL_GROUPS.value:self._handle_get_groups_request,
-            Operation.GET_ALL_AGENDS_OF_GROUP.value:self._handle_get_all_agends_of_group_request
+            Operation.GET_ALL_AGENDS_OF_GROUP.value:self._handle_get_all_agends_of_group_request,
+            Operation.STORE_AGEND.value:self._handle_store_agend_request
         }
     
     def find_user(self,username,password,start_id):
@@ -124,7 +125,9 @@ class Node:
             current_groups[group] = data['groups'][group]
             pass
         try:
-            return self._successor.get_groups(current_groups)
+            if self._successor.id == self._id:
+                return current_groups
+            return self._successor.get_groups(start_id,current_groups)
         except Exception as ex:
             return current_groups
         pass
@@ -147,6 +150,26 @@ class Node:
             pass
         pass
     
+    def store_agend(self,agend_id,groupname,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if groupname in data['groups'].keys():
+            data['groups'][groupname]['agends'].append(agend_id)
+            file = open(f'{path}','w')
+            file.write(json.dumps(data))
+            file.close()
+            return {'status':'OK'}
+        
+        try:
+            if not self._successor.id == self._id:
+                return self._successor.store_agend(agend_id,groupname,start_id)
+            return {'status':'WRONG'}
+        except Exception as ex:
+            return {'status':"WRONG"}
+        pass
+    
     def get_all_agends_of_group(self,groupname,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
@@ -154,7 +177,31 @@ class Node:
         file.close()
         if groupname in data['groups'].keys():
             return {'agends':data['groups'][groupname]['agends'],'status':'OK'}
-        return self._successor.get_all_agends_of_group(groupname,start_id)
+        try:
+            if not self._successor.id == self._id:
+                return self._successor.get_all_agends_of_group(groupname,start_id)
+            return {'agends':[],'status':'WRONG'}
+        except Exception as ex:
+            return {'agends':[],'status':'WRONG'}
+        pass
+    
+    def get_all_events_of_agend(self,agend_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if agend_id in data['agends'].keys():
+            return {'events':data['agends'][agend_id],'status':'OK'}
+        return self._successor.get_all_events_of_agend(agend_id,start_id)
+    
+    def get_event_by_id(self,event_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if event_id in data['events'].keys():
+            return data['events'][event_id]
+        return self._successor.get_event_by_id(event_id,start_id)
     
     ###################################
     # METHODS OF CHORD PROTOCOL
@@ -562,5 +609,27 @@ class Node:
         if start_id == self._id:
             return {'status':'WRONG','agends':[]}
         return self.get_all_agends_of_group(groupname,start_id)
+    
+    def _handle_get_all_events_of_agend_request(self,**request):
+        start_id = request['start']
+        agend_id = request['agend_id']
+        if start_id == self._id:
+            return {'events':[],'status':'WRONG'}
+        return self.get_all_events_of_agend(agend_id,start_id)
+    
+    def _handle_get_event_by_id_request(self,**request):
+        event_id = request['event_id']
+        start_id = request['start']
+        if start_id == self._id:
+            return {}
+        return self.get_event_by_id(event_id,start_id)
+    
+    def _handle_store_agend_request(self,**request):
+        agend_id = request['agend_id']
+        groupname = request['groupname']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':'WRONG'}
+        return self.store_agend(agend_id,groupname,start_id)
     
     pass

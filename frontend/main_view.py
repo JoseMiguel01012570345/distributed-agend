@@ -66,7 +66,6 @@ class CreateGroupView(tk.Toplevel):
     
     def create_group(self):
         self.server.create_group(self._groupname.get())
-        time.sleep(5)
         self.destroy()
         self._root.deiconify()
         self._root.update_view()
@@ -103,7 +102,6 @@ class GroupItem:
     
     def delete(self):
         self.server.delete_group(self._name)
-        time.sleep(5)
         self._master.update_view()
         pass
     

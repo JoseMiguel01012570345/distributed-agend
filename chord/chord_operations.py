@@ -19,4 +19,7 @@ class Operation(Enum):
     GET_ALL_GROUPS = 15
     DELETE_ONE_GROUP = 16
     GET_ALL_AGENDS_OF_GROUP = 17
+    GET_ALL_EVENTS_OF_AGEND = 18
+    GET_EVENT_BY_ID = 19
+    STORE_AGEND = 20
     pass

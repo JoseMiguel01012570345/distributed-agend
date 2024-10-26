@@ -1,4 +1,5 @@
 import tkinter as tk
+from frontend.agend_view import AgendView
 
 class GroupView(tk.Toplevel):
     
@@ -19,7 +20,6 @@ class GroupView(tk.Toplevel):
         self._View = tk.Frame(self._Frame)
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._agends = self.server.get_agends_by_group(self._groupname)
-        print(self._agends)
         self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
@@ -35,6 +35,16 @@ class GroupView(tk.Toplevel):
     def create_agend(self):
         self.withdraw()
         CreateAgendView(self,self.server,self._groupname)
+        pass
+    
+    def update_view(self):
+        self._agends = self.server.get_agends_by_group(self._groupname)
+        for item in self._agends_items:
+            item.destroy()
+            pass
+        self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
+        self._View.update_idletasks()
+        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         pass
     
     pass
@@ -72,6 +82,7 @@ class CreateAgendView(tk.Toplevel):
         self.server.create_agend(self._agend_name.get(),self._groupname)
         self.destroy()
         self._root.deiconify()
+        self._root.update_view()
         pass
     
     pass
@@ -84,11 +95,22 @@ class AgendItem:
         self.server = server
         self._agend_id = agend_id
         self._agend_name_label = tk.Label(root,text=agend_id)
-        self._edit_btn = tk.Button(root,text='Edit')
+        self._edit_btn = tk.Button(root,text='Edit',command=self.edit)
         self._delete_btn = tk.Button(root,text='Delete')
-        self._agend_name_label.pack(side=tk.TOP,pady=10,padx=5)
+        self._agend_name_label.pack(side=tk.TOP,pady=15,padx=5)
         self._edit_btn.pack(side=tk.TOP,pady=5,padx=5)
         self._delete_btn.pack(side=tk.TOP,pady=5,padx=5)
+        pass
+    
+    def destroy(self):
+        self._agend_name_label.destroy()
+        self._edit_btn.destroy()
+        self._delete_btn.destroy()
+        pass
+    
+    def edit(self):
+        self._master.withdraw()
+        AgendView(self._master,self.server,self._agend_id)
         pass
     
     pass

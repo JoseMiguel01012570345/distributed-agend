@@ -12,19 +12,32 @@ class Server(Node):
             pass
         pass
     
-    def create_event(self,date,description):
+    def create_event(self,agend_id,date,description):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
         content = file.read()
         file.close()
         data = json.loads(content)
         event_id = sha1_hash(f'{date}<--->{description}',10)
-        data['events'][event_id] = {'date':date,'description':description}
+        event_id = str(event_id)
+        if not event_id in data['events'].keys():
+            data['events'][event_id] = {'date':date,'description':description}
+            pass
+        if not event_id in data['agends'][agend_id]:
+            data['agends'][agend_id].append(event_id)
+            pass
         file = open(f'{path}','w')
-        content = json.dumps(data)
-        file.write(data)
+        file.write(json.dumps(data))
         file.close()
         pass
+    
+    def get_events(self,agend_id):
+        events = self.get_all_events_of_agend(agend_id,self._id)
+        return events
+    
+    def get_event(self,event_id):
+        event = self.get_event_by_id(event_id,self._id)
+        return event
     
     def create_user(self,username,password):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
@@ -70,8 +83,21 @@ class Server(Node):
         file = open(f'{path}','r')
         data = json.loads(file.read())
         file.close()
-        data['agends'][agend_id] = []
-        data['groups'][groupname]['agends'].append(agend_id)
+        if not agend_id in data['agends'].keys():
+            data['agends'][agend_id] = []
+            pass
+        if not groupname in data['groups'].keys():
+            try:
+                if not self._successor.id == self._id:
+                    self._successor.store_agend(agend_id,groupname,self._id)
+                    pass
+                pass
+            except Exception as ex:
+                pass
+            pass
+        elif not agend_id in data['groups'][groupname]['agends']:
+            data['groups'][groupname]['agends'].append(agend_id)
+            pass
         file = open(f'{path}','w')
         file.write(json.dumps(data))
         file.close()
