@@ -96,7 +96,10 @@ class Node:
             Operation.FIND_USER.value:self._handle_find_user_request,
             Operation.GET_ALL_GROUPS.value:self._handle_get_groups_request,
             Operation.GET_ALL_AGENDS_OF_GROUP.value:self._handle_get_all_agends_of_group_request,
-            Operation.STORE_AGEND.value:self._handle_store_agend_request
+            Operation.STORE_AGEND.value:self._handle_store_agend_request,
+            Operation.STORE_EVENT.value:self._handle_store_event_request,
+            Operation.GET_ALL_EVENTS_OF_AGEND.value:self._handle_get_all_events_of_agend_request,
+            Operation.GET_EVENT_BY_ID.value:self._handle_get_event_by_id_request
         }
     
     def find_user(self,username,password,start_id):
@@ -170,6 +173,26 @@ class Node:
             return {'status':"WRONG"}
         pass
     
+    def store_event(self,event_id,agend_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if agend_id in data['agends'].keys():
+            data['agends'][agend_id].append(event_id)
+            file = open(f'{path}','w')
+            file.write(json.dumps(data))
+            file.close()
+            return {'status':'OK'}
+        
+        try:
+            if not self._successor.id == self._id:
+                return self._successor.store_event(event_id,agend_id,start_id)
+            return {'status':'WRONG'}
+        except Exception as ex:
+            return {'status':'WRONG'}
+        pass
+    
     def get_all_agends_of_group(self,groupname,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
@@ -192,7 +215,14 @@ class Node:
         file.close()
         if agend_id in data['agends'].keys():
             return {'events':data['agends'][agend_id],'status':'OK'}
-        return self._successor.get_all_events_of_agend(agend_id,start_id)
+        try:
+            if not self._successor.id == self._id:
+                return self._successor.get_all_events_of_agend(agend_id,start_id)
+            return {'events':[],'status':'WRONG'}
+        except Exception as ex:
+            return {'events':[],'status':'WRONG'}
+        pass
+                
     
     def get_event_by_id(self,event_id,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
@@ -264,7 +294,7 @@ class Node:
                 except Exception as ex:
                     pass
                 pass
-            time.sleep(5)
+            time.sleep(2)
             pass
         pass
     
@@ -294,7 +324,7 @@ class Node:
                 pass
             except Exception as ex:
                 pass
-            time.sleep(5)
+            time.sleep(2)
             pass
         pass
     
@@ -405,16 +435,14 @@ class Node:
                 pass
             except Exception as ex:
                 pass
-            time.sleep(10)
+            time.sleep(2)
             pass
         pass
     
     def logger(self):
         while True:
+            os.system('clear')
             logging.info(f'{Color.GREEN.value}NODE {self} SUCCESSOR {self._successor} PREDECESSOR {self._predecessor}{Color.RESET.value}')
-            for i in range(len(self._finger_table)):
-                print((self._id + 2**i)%2**self._table_size,self._finger_table[i])
-                pass
             if self._leader.id == self._id:
                 logging.info(f'{Color.BLUE.value}NODE {self._id} LEADER{Color.RESET.value}')
             time.sleep(5)
@@ -466,7 +494,7 @@ class Node:
                     self.start_leader_selection()
                     pass
                 pass
-            time.sleep(5)
+            time.sleep(1)
             pass
         pass
     
@@ -631,5 +659,13 @@ class Node:
         if start_id == self._id:
             return {'status':'WRONG'}
         return self.store_agend(agend_id,groupname,start_id)
+    
+    def _handle_store_event_request(self,**request):
+        event_id = request['event_id']
+        agend_id = request['agend_id']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':'WRONG'}
+        return self.store_event(event_id,agend_id,start_id)
     
     pass

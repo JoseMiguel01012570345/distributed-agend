@@ -18,7 +18,13 @@ class AgendView(tk.Toplevel):
         self._View = tk.Frame(self._Frame)
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._events = self.server.get_events(self._agend_id)
-        self._event_items = [ActivityItem(self._View,self,self.server,event) for event in self._events['events']]
+        self._event_items = []
+        for event in self._events['events']:
+            _event = self.server.get_event(event)
+            if 'date' in _event.keys() and 'description' in _event.keys():
+                self._event_items.append(ActivityView(self._View,self,self.server,event))
+                pass
+            pass
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         
@@ -44,7 +50,13 @@ class AgendView(tk.Toplevel):
         for event in self._event_items:
             event.destroy()
             pass
-        self._event_items = [ActivityItem(self._View,self,self.server,event) for event in self._events['events']]
+        self._event_items = []
+        for event in self._events['events']:
+            _event = self.server.get_event(event)
+            if 'date' in _event.keys() and 'description' in _event.keys():
+                self._event_items.append(ActivityView(self._View,self,self.server,event))
+                pass
+            pass
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         pass
@@ -59,6 +71,7 @@ class ActivityItem:
         self.server = server
         self._activity_id = activity_id
         self._event = self.server.get_event(self._activity_id)
+        print(self._event)
         self._activity_label = tk.Label(root,text=activity_id)
         self._delete_btn = tk.Button(root,text='Delete',command=self.delete)
         self._date_label = tk.Label(self._root,text=self._event['date'])

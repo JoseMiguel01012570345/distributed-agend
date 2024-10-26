@@ -53,6 +53,7 @@ class NodeReference:
         return str(self)
 
     def _send_data(self,operation,data):
+        b = None
         try:
             _data = {'operation':operation,'data':data}
             json_data = set_json_data_to_send(_data)
@@ -60,9 +61,11 @@ class NodeReference:
             client.connect((self._host,self._port))
             client.sendall(json_data)
             json_response = client.recv(BUFFER_SIZE)
+            b = json_response
             client.close()
             return get_data_from_json(json_response)
         except Exception as ex:
+            logging.error(f'{Color.RED.value}{b}{Color.RESET.value}')
             return None
     
     def find_successor(self,key):
@@ -140,6 +143,15 @@ class NodeReference:
             'start':start_id
         }
         response = self._send_data(Operation.STORE_AGEND.value,data)
+        return response
+    
+    def store_event(self,event_id,agend_id,start_id):
+        data = {
+            'event_id':event_id,
+            'agend_id':agend_id,
+            'start':start_id
+        }
+        response = self._send_data(Operation.STORE_EVENT.value,data)
         return response
 
     pass

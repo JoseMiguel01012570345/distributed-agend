@@ -23,7 +23,16 @@ class Server(Node):
         if not event_id in data['events'].keys():
             data['events'][event_id] = {'date':date,'description':description}
             pass
-        if not event_id in data['agends'][agend_id]:
+        if not agend_id in data['agends'].keys():
+            try:
+                if not self._successor.id == self._id:
+                    self._successor.store_event(event_id,agend_id,self._id)
+                    pass
+                pass
+            except Exception as ex:
+                pass
+            pass
+        elif not event_id in data['agends'][agend_id]:
             data['agends'][agend_id].append(event_id)
             pass
         file = open(f'{path}','w')
