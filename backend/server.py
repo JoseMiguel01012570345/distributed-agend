@@ -49,7 +49,6 @@ class Server(Node):
         data = json.loads(file.read())
         file.close()
         group = {
-            'users':[],
             'agends':[]
         }
         data['groups'][group_name] = group
@@ -65,5 +64,21 @@ class Server(Node):
     def delete_group(self,groupname):
         self.delete_one_group(groupname,self._id)
         pass
+    
+    def create_agend(self,agend_id,groupname):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        data['agends'][agend_id] = []
+        data['groups'][groupname]['agends'].append(agend_id)
+        file = open(f'{path}','w')
+        file.write(json.dumps(data))
+        file.close()
+        pass
+    
+    def get_agends_by_group(self,groupname):
+        agends = self.get_all_agends_of_group(groupname,self._id)
+        return agends
     
     pass

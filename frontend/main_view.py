@@ -1,5 +1,6 @@
 import tkinter as tk
 import time
+from frontend.group_view import GroupView
 
 class MainView(tk.Tk):
     
@@ -16,7 +17,7 @@ class MainView(tk.Tk):
         self._View = tk.Frame(self._Frame)
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._groups = server.get_all_groups()
-        self._groups_items = [GroupItem(group,self._groups[group]['users'],self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         self._create_group_btn = tk.Button(self,text='Create group',command=self.create_group)
@@ -34,7 +35,9 @@ class MainView(tk.Tk):
         for group in self._groups_items:
             group.destroy()
             pass
-        self._groups_items = [GroupItem(group,self._groups[group]['users'],self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._View.update_idletasks()
+        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         pass
     
     pass
@@ -63,6 +66,7 @@ class CreateGroupView(tk.Toplevel):
     
     def create_group(self):
         self.server.create_group(self._groupname.get())
+        time.sleep(5)
         self.destroy()
         self._root.deiconify()
         self._root.update_view()
@@ -77,15 +81,14 @@ class CreateGroupView(tk.Toplevel):
 
 class GroupItem:
     
-    def __init__(self,name,users,agends,root,master,server):
+    def __init__(self,name,agends,root,master,server):
         self.server = server
         self._master = master
         self._name = name
-        self._users = users
         self._agends = agends
         self._root = root
         self._name_label = tk.Label(self._root,text=self._name)
-        self._edit_btn = tk.Button(self._root,text='Edit')
+        self._edit_btn = tk.Button(self._root,text='Edit',command=self.edit)
         self._delete_btn = tk.Button(self._root,text='Delete',command=self.delete)
         self._name_label.pack(side=tk.TOP,pady=30,padx=10)
         self._edit_btn.pack(side=tk.TOP,pady=5,padx=10)
@@ -102,6 +105,11 @@ class GroupItem:
         self.server.delete_group(self._name)
         time.sleep(5)
         self._master.update_view()
+        pass
+    
+    def edit(self):
+        self._master.withdraw()
+        GroupView(self._master,self.server,self._name)
         pass
     
     pass

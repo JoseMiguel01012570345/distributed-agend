@@ -120,5 +120,9 @@ class NodeReference:
     def delete_one_group(self,groupname,start_id):
         self._send_data(Operation.DELETE_ONE_GROUP.value,{'groupname':groupname,'start':start_id})
         pass
+    
+    def get_all_agends_of_group(self,groupname,start_id):
+        response = self._send_data(Operation.GET_ALL_AGENDS_OF_GROUP.value,{'groupname':groupname,'start':start_id})
+        return response
         
     pass

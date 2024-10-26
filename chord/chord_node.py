@@ -94,7 +94,8 @@ class Node:
             Operation.GET_LEADER.value:self._handle_get_leader_request,
             Operation.STORE_DATA.value:self._handle_store_data_request,
             Operation.FIND_USER.value:self._handle_find_user_request,
-            Operation.GET_ALL_GROUPS.value:self._handle_get_groups_request
+            Operation.GET_ALL_GROUPS.value:self._handle_get_groups_request,
+            Operation.GET_ALL_AGENDS_OF_GROUP.value:self._handle_get_all_agends_of_group_request
         }
     
     def find_user(self,username,password,start_id):
@@ -146,6 +147,18 @@ class Node:
             pass
         pass
     
+    def get_all_agends_of_group(self,groupname,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if groupname in data['groups'].keys():
+            return {'agends':data['groups'][groupname]['agends'],'status':'OK'}
+        return self._successor.get_all_agends_of_group(groupname,start_id)
+    
+    ###################################
+    # METHODS OF CHORD PROTOCOL
+    ###################################
     def notify(self,node):
         if node.id == self._id:
             return
@@ -516,6 +529,10 @@ class Node:
         self.store_data(request)
         return {'response':'OK'}
     
+    ###################################
+    # END PROTOCOL IMPLEMENTATION
+    ###################################
+    
     def _handle_find_user_request(self,**request):
         username = request['username']
         password = request['password']
@@ -538,5 +555,12 @@ class Node:
             return
         self.delete_one_group(groupname,start_id)
         pass
+    
+    def _handle_get_all_agends_of_group_request(self,**request):
+        groupname = request['groupname']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':'WRONG','agends':[]}
+        return self.get_all_agends_of_group(groupname,start_id)
     
     pass

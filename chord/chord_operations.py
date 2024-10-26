@@ -18,4 +18,5 @@ class Operation(Enum):
     FIND_USER = 14
     GET_ALL_GROUPS = 15
     DELETE_ONE_GROUP = 16
+    GET_ALL_AGENDS_OF_GROUP = 17
     pass
