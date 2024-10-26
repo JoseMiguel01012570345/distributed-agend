@@ -1,0 +1,1 @@
+from frontend.auth_page import AuthPage

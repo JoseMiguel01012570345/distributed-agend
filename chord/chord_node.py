@@ -93,7 +93,8 @@ class Node:
             Operation.NOTIFY_LEADER.value:self._handle_notify_leader_request,
             Operation.GET_LEADER.value:self._handle_get_leader_request,
             Operation.STORE_DATA.value:self._handle_store_data_request,
-            Operation.FIND_USER.value:self._handle_find_user_request
+            Operation.FIND_USER.value:self._handle_find_user_request,
+            Operation.GET_ALL_GROUPS.value:self._handle_get_groups_request
         }
     
     def find_user(self,username,password,start_id):
@@ -112,6 +113,38 @@ class Node:
                 return {'status':False}
             pass
         return {'status':False}
+    
+    def get_groups(self,start_id,current_groups={}):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        for group in data['groups'].keys():
+            current_groups[group] = data['groups'][group]
+            pass
+        try:
+            return self._successor.get_groups(current_groups)
+        except Exception as ex:
+            return current_groups
+        pass
+    
+    def delete_one_group(self,groupname,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file  = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if groupname in data['groups'].keys():
+            del data['groups'][groupname]
+            pass
+        file = open(f'{path}','w')
+        file.write(json.dumps(data))
+        file.close()
+        try:
+            self._successor.delete_one_group(groupname,start_id)
+            pass
+        except Exception as ex:
+            pass
+        pass
     
     def notify(self,node):
         if node.id == self._id:
@@ -306,6 +339,9 @@ class Node:
                 if not self._successor.id == self._id:
                     self._successor.store_data(data)
                     pass
+                if self._predecessor and not self._successor.id == self._predecessor:
+                    self._predecessor.store_data(data)
+                    pass
                 pass
             except Exception as ex:
                 pass
@@ -388,7 +424,7 @@ class Node:
                 operation = data['operation']
                 data_ = data['data']
                 if operation in self._request_handlers.keys():
-                    if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value]:
+                    if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value,Operation.DELETE_ONE_GROUP.value]:
                         response = self._request_handlers[operation](**data_)
                         json_response = set_json_data_to_send(response)
                         conn.sendall(json_response)
@@ -487,5 +523,20 @@ class Node:
         if start_id == self._id:
             return {'status':False}
         return self.find_user(username,password,start_id)
-        
+    
+    def _handle_get_groups_request(self,**request):
+        current_groups = request['current_groups']
+        start_id = request['start']
+        if start_id == self._id:
+            return current_groups
+        return self.get_groups(start_id,current_groups)
+    
+    def _handle_delet_one_group_request(self,**request):
+        start_id = request['start']
+        groupname = request['groupname']
+        if self._id == start_id:
+            return
+        self.delete_one_group(groupname,start_id)
+        pass
+    
     pass

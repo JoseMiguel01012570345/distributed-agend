@@ -16,4 +16,6 @@ class Operation(Enum):
     GET_LEADER = 12
     STORE_DATA = 13
     FIND_USER = 14
+    GET_ALL_GROUPS = 15
+    DELETE_ONE_GROUP = 16
     pass

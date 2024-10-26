@@ -43,12 +43,27 @@ class Server(Node):
             return True
         return False
     
-    def get_groups(self):
+    def create_group(self,group_name):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
-        content = file.read()
+        data = json.loads(file.read())
         file.close()
-        data = json.loads(content)
-        return data
+        group = {
+            'users':[],
+            'agends':[]
+        }
+        data['groups'][group_name] = group
+        file = open(f'{path}','w')
+        file.write(json.dumps(data))
+        file.close()
+        pass
+    
+    def get_all_groups(self):
+        groups = self.get_groups(self._id)
+        return groups
+    
+    def delete_group(self,groupname):
+        self.delete_one_group(groupname,self._id)
+        pass
     
     pass

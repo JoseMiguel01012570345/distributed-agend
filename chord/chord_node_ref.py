@@ -112,5 +112,13 @@ class NodeReference:
     def find_user(self,username,password,start_id):
         response = self._send_data(Operation.FIND_USER.value,{'username':username,'password':password,'start':start_id})
         return response
+    
+    def get_groups(self,start_id,current_groups):
+        response = self._send_data(Operation.GET_ALL_GROUPS.value,{'start':start_id,'current_groups':current_groups})
+        return response
+    
+    def delete_one_group(self,groupname,start_id):
+        self._send_data(Operation.DELETE_ONE_GROUP.value,{'groupname':groupname,'start':start_id})
+        pass
         
     pass
