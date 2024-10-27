@@ -99,7 +99,9 @@ class Node:
             Operation.STORE_AGEND.value:self._handle_store_agend_request,
             Operation.STORE_EVENT.value:self._handle_store_event_request,
             Operation.GET_ALL_EVENTS_OF_AGEND.value:self._handle_get_all_events_of_agend_request,
-            Operation.GET_EVENT_BY_ID.value:self._handle_get_event_by_id_request
+            Operation.GET_EVENT_BY_ID.value:self._handle_get_event_by_id_request,
+            Operation.DELETE_ONE_EVENT.value:self._handle_delete_one_event_request,
+            Operation.DELETE_ONE_GROUP.value:self._handle_delet_one_group_request
         }
     
     def find_user(self,username,password,start_id):
@@ -146,12 +148,36 @@ class Node:
         file = open(f'{path}','w')
         file.write(json.dumps(data))
         file.close()
-        try:
-            self._successor.delete_one_group(groupname,start_id)
+        if not self._successor.id == self._id:
+            try:
+                return self._successor.delete_one_group(groupname,start_id)
+            except Exception as ex:
+                return {'status':'OK'}
             pass
-        except Exception as ex:
+        return {'status':'OK'}
+    
+    def delete_one_event(self,event_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        if event_id in data['events'].keys():
+            del data['events'][event_id]
             pass
-        pass
+        for agend in data['agends'].keys():
+            if event_id in data['agends'][agend]:
+                data['agends'][agend].remove(event_id)
+                pass
+            pass
+        file = open(f'{path}','w')
+        file.write(json.dumps(data))
+        file.close()
+        if not self._successor.id == self._id:
+            try:
+                return self._successor.delete_one_event(event_id,start_id)
+            except Exception as ex:
+                return {'status':'OK'}
+            pass
+        return {'status':'OK'}
     
     def store_agend(self,agend_id,groupname,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
@@ -670,9 +696,8 @@ class Node:
         start_id = request['start']
         groupname = request['groupname']
         if self._id == start_id:
-            return
-        self.delete_one_group(groupname,start_id)
-        pass
+            return {'status':'OK'}
+        return self.delete_one_group(groupname,start_id)
     
     def _handle_get_all_agends_of_group_request(self,**request):
         groupname = request['groupname']
@@ -718,5 +743,12 @@ class Node:
         if start_id == self._id:
             return {'status':'OK'}
         return self.find_agend_by_id(agend_id,start_id)
+    
+    def _handle_delete_one_event_request(self,**request):
+        event_id = request['event_id']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':'OK'}
+        return self.delete_one_event(event_id,start_id)
     
     pass

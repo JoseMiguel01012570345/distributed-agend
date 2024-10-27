@@ -131,4 +131,8 @@ class Server(Node):
         agends = self.get_all_agends_of_group(groupname,self._id)
         return agends
     
+    def delete_event(self,event_id):
+        self.delete_one_event(event_id,self._id)
+        pass
+    
     pass

@@ -89,6 +89,7 @@ class ActivityItem:
         pass
     
     def delete(self):
+        self.server.delete_event(self._activity_id)
         self.destroy()
         pass
         

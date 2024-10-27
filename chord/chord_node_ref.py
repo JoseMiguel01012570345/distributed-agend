@@ -162,4 +162,12 @@ class NodeReference:
         response = self._send_data(Operation.FIND_AGEND_BY_ID.value,data)
         return response
 
+    def delete_one_event(self,event_id,start_id):
+        data = {
+            'event_id':event_id,
+            'start':start_id
+        }
+        response = self._send_data(Operation.DELETE_ONE_EVENT.value,data)
+        return response
+
     pass
