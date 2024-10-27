@@ -1,116 +1,113 @@
-"""
-main view
+import tkinter as tk
+import time
+from frontend.group_view import GroupView
 
-here's defined the main view page
-"""
-
-import tkinter as Tk
-from frontend import auth_page,agend_view,activity_view
-from frontend.activity_view import Activity
-from frontend.agend_view import Agend,AgendView,AgendViewCreate
-from frontend.fonts import *
-
-size= '1200x600'
-
-class AgendItem:
+class MainView(tk.Tk):
     
-    def __init__(self,master,agend,root=None):
-        self._root = root
-        self._master = master
-        self._agend = agend
-        self._frame = Tk.Canvas(master,relief='solid',width=500,borderwidth=2,bg=rgb_to_hex(100,100,100))
-        self._owner_label = Tk.Label(self._frame,text=self._agend.owner,font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
-        self._agend_group = Tk.Label(self._frame,text=self._agend.group,font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
-        self._activity_counter_label = Tk.Label(self._frame,text=f'Actividades programadas: {len(agend.activitys)}',font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
-        self._edit_btn = Tk.Button(self._frame,text='Edit',command=lambda : self._edit(),font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white')
-        self._show()
+    def __init__(self,server,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.server = server
+        self.title('Main View')
+        self.geometry('1600x800')
+        self._Frame = tk.Canvas(self,width=1000,height=600)
+        self._Frame.pack(side=tk.LEFT,padx=5,pady=5,expand=True,fill=tk.BOTH)
+        self._ScrollBar = tk.Scrollbar(self,orient=tk.VERTICAL,command=self._Frame.yview)
+        self._ScrollBar.pack(side=tk.RIGHT,fill=tk.Y)
+        self._Frame.configure(yscrollcommand=self._ScrollBar.set)
+        self._View = tk.Frame(self._Frame)
+        self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
+        self._groups = server.get_all_groups()
+        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._View.update_idletasks()
+        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
+        self._create_group_btn = tk.Button(self,text='Create group',command=self.create_group)
+        self._create_group_btn.pack(side=tk.BOTTOM,pady=10,padx=10)
+        self.mainloop()
         pass
     
-    def _show(self):
-        self._frame.pack(side='top',padx=5,pady=5,expand=True,fill='x')
-        self._owner_label.pack(side='top',padx=300,pady=10)
-        self._agend_group.pack(side='top',padx=300,pady=10)
-        self._activity_counter_label.pack(side='top',padx=300,pady=10)
-        self._edit_btn.pack(side='top',padx=5,pady=5)
+    def create_group(self):
+        self.withdraw()
+        CreateGroupView(self,self.server)
         pass
     
-    def _edit(self):
-        
-        def update():
-            self._activity_counter_label.config(text=f'Actividades programadas: {len(self._agend.activitys)}')
-            self._agend_group.config(text=self._agend.group)
+    def update_view(self):
+        self._groups = self.server.get_all_groups()
+        for group in self._groups_items:
+            group.destroy()
             pass
-        
-        self._root.withdraw()
-        AgendView(self._agend,lambda: update(),self._root)
+        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._View.update_idletasks()
+        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
+        pass
+    
+    pass
+
+class CreateGroupView(tk.Toplevel):
+    
+    def __init__(self,root,server,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self._root = root
+        self.server = server
+        self.title('Create Group')
+        self.geometry('800x600')
+        self._frame = tk.Frame(self)
+        self._groupname = tk.StringVar(self._frame)
+        self._groupname_textbox = tk.Entry(self,text=self._groupname)
+        self._groupname_label = tk.Label(self,text='Group Name')
+        self._create_btn = tk.Button(self,text='Create',command=self.create_group)
+        self._cancel_btn = tk.Button(self,text='Cancel',command=self.cancel)
+        self._groupname_label.pack(side=tk.TOP,pady=10,padx=10)
+        self._groupname_textbox.pack(side=tk.TOP,pady=10,padx=10)
+        self._cancel_btn.pack(side=tk.BOTTOM,pady=10,padx=10)
+        self._create_btn.pack(side=tk.BOTTOM,pady=10,padx=10)
+        self.protocol('WM_DELETE_WINDOW',self.cancel)
+        self.mainloop()
+        pass
+    
+    def create_group(self):
+        self.server.create_group(self._groupname.get())
+        self.destroy()
+        self._root.deiconify()
+        self._root.update_view()
+        pass
+    
+    def cancel(self):
+        self.destroy()
+        self._root.deiconify()
+        pass
+    
+    pass
+
+class GroupItem:
+    
+    def __init__(self,name,agends,root,master,server):
+        self.server = server
+        self._master = master
+        self._name = name
+        self._agends = agends
+        self._root = root
+        self._name_label = tk.Label(self._root,text=self._name)
+        self._edit_btn = tk.Button(self._root,text='Edit',command=self.edit)
+        self._delete_btn = tk.Button(self._root,text='Delete',command=self.delete)
+        self._name_label.pack(side=tk.TOP,pady=30,padx=10)
+        self._edit_btn.pack(side=tk.TOP,pady=5,padx=10)
+        self._delete_btn.pack(side=tk.TOP,pady=5,padx=10)
         pass
     
     def destroy(self):
-        self._frame.destroy()
+        self._name_label.destroy()
+        self._edit_btn.destroy()
+        self._delete_btn.destroy()
+        pass
+    
+    def delete(self):
+        self.server.delete_group(self._name)
+        self._master.update_view()
+        pass
+    
+    def edit(self):
+        self._master.withdraw()
+        GroupView(self._master,self.server,self._name)
         pass
     
     pass
-
-class MainView(Tk.Tk):
-    
-    """
-    agends: list(Agend)
-    on_save_data_callback: func(list(Agend),Agend) -> bool (debe retornar true si el guardado de datos fue exitoso)
-    """
-    
-    def __init__(self,agends=[],on_save_data_callback=None,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self._on_save_data_callback = on_save_data_callback
-        self._center_win()
-        self.title('Agends')
-        self._Frame = Tk.Canvas(self,width=500,height=500,bg=rgb_to_hex(100,100,200))
-        self._Frame.pack(side='left',padx=5,pady=5,expand=True,fill='both')
-        self._ScrollBar = Tk.Scrollbar(self,orient='vertical',command=self._Frame.yview)
-        self._ScrollBar.pack(side='right',fill='y')
-        self._Frame.configure(yscrollcommand=self._ScrollBar.set)
-        self._View = Tk.Frame(self._Frame,bg=rgb_to_hex(100,100,200))
-        self._Frame.create_window((600,0),window=self._View,anchor='nw')
-        self._agends = agends
-        set_agend_list(self._View,agends,self)
-        self._View.update_idletasks()
-        self._Frame.configure(scrollregion=self._Frame.bbox('all'))
-        self._add_agend_btn = Tk.Button(self,text='Add',font=AUTH_FONT,bg=rgb_to_hex(100,100,100),fg='white',command=lambda : self._add_agend())
-        self._add_agend_btn.pack(side='bottom',pady=10,padx=10)
-        self.config(bg=rgb_to_hex(100,100,200))
-        self.mainloop()
-        pass
-
-    def _center_win(self):
-        win_width,win_height = self.winfo_screenwidth(),self.winfo_screenheight()
-        width,height = int(size.split('x')[0]),int(size.split('x')[0])
-        x,y = win_width // 2 - width // 2,win_height // 2 - height // 2
-        self.geometry(f'{size}+{x}+{y}')
-        pass
-
-    def _add_agend(self):
-        
-        def update(agend):
-            if self._on_save_data_callback:
-                if self._on_save_data_callback(agend):
-                    self._agends.append(agend)
-                    AgendItem(self._View,agend,self)
-                    self._View.update_idletasks()
-                    self._Frame.configure(scrollregion=self._Frame.bbox('all'))
-                    pass
-                pass
-            else:
-                self._agends.append(agend)
-                AgendItem(self._View,agend,self)
-                self._View.update_idletasks()
-                self._Frame.configure(scrollregion=self._Frame.bbox('all'))
-                pass
-            pass
-        
-        self.withdraw()
-        AgendViewCreate(lambda agend: update(agend),self)
-        pass
-    
-    pass
-
-def set_agend_list(master,agends,root=None):
-    return [AgendItem(master,agend,root) for agend in agends]
