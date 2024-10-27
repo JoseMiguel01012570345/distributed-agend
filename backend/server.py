@@ -41,7 +41,7 @@ class Server(Node):
         pass
     
     def get_events(self,agend_id):
-        events = self.get_all_events_of_agend(agend_id,self._id)
+        events = self.get_all_events_of_agend(agend_id,self._id,[])
         return events
     
     def get_event(self,event_id):
@@ -87,12 +87,27 @@ class Server(Node):
         self.delete_one_group(groupname,self._id)
         pass
     
+    def find_agend(self,agend_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if agend_id in data['agends'].keys():
+            return True
+        try:
+            if self._successor.find_agend_by_id(agend_id,self._id)['status'] == 'OK':
+                return True
+            return False
+        except Exception as ex:
+            return False
+        pass
+
     def create_agend(self,agend_id,groupname):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
         data = json.loads(file.read())
         file.close()
-        if not agend_id in data['agends'].keys():
+        if not agend_id in data['agends'].keys() and not self.find_agend(agend_id):
             data['agends'][agend_id] = []
             pass
         if not groupname in data['groups'].keys():

@@ -128,8 +128,8 @@ class NodeReference:
         response = self._send_data(Operation.GET_ALL_AGENDS_OF_GROUP.value,{'groupname':groupname,'start':start_id})
         return response
     
-    def get_all_events_of_agend(self,agend_id,start_id):
-        response = self._send_data(Operation.GET_ALL_EVENTS_OF_AGEND.value,{'agend_id':agend_id,'start':start_id})
+    def get_all_events_of_agend(self,agend_id,start_id,current_events):
+        response = self._send_data(Operation.GET_ALL_EVENTS_OF_AGEND.value,{'agend_id':agend_id,'start':start_id,'current_events':current_events})
         return response
     
     def get_event_by_id(self,event_id,start_id):
@@ -152,6 +152,14 @@ class NodeReference:
             'start':start_id
         }
         response = self._send_data(Operation.STORE_EVENT.value,data)
+        return response
+    
+    def find_agend_by_id(self,agend_id,start_id):
+        data = {
+            'agend_id':agend_id,
+            'start':start_id
+        }
+        response = self._send_data(Operation.FIND_AGEND_BY_ID.value,data)
         return response
 
     pass

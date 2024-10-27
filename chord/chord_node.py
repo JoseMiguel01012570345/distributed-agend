@@ -208,21 +208,42 @@ class Node:
             return {'agends':[],'status':'WRONG'}
         pass
     
-    def get_all_events_of_agend(self,agend_id,start_id):
+    def get_all_events_of_agend(self,agend_id,start_id,current_events):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')
         data = json.loads(file.read())
         file.close()
         if agend_id in data['agends'].keys():
-            return {'events':data['agends'][agend_id],'status':'OK'}
+            for event in data['agends'][agend_id]:
+                if not event in current_events:
+                    current_events.append(event)
+                    pass
+                pass
+            # return {'events':data['agends'][agend_id],'status':'OK'}
+            pass
         try:
             if not self._successor.id == self._id:
-                return self._successor.get_all_events_of_agend(agend_id,start_id)
-            return {'events':[],'status':'WRONG'}
+                return self._successor.get_all_events_of_agend(agend_id,start_id,current_events)
+            return {'events':current_events,'status':'OK'}
         except Exception as ex:
-            return {'events':[],'status':'WRONG'}
+            return {'events':current_events,'status':'OK'}
         pass
-                
+    
+    def find_agend_by_id(self,agend_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        if agend_id in data['agends'].keys():
+            return {'status':'OK'}
+        try:
+            return self._successor.find_agend_by_id(agend_id,start_id)
+        except Exception as ex:
+            return {'status':'WRONG'}
+        pass
+    
+    def find_group_by_id(self,groupname,start_id):
+        pass            
     
     def get_event_by_id(self,event_id,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
@@ -663,9 +684,10 @@ class Node:
     def _handle_get_all_events_of_agend_request(self,**request):
         start_id = request['start']
         agend_id = request['agend_id']
+        current_events = request['current_events']
         if start_id == self._id:
-            return {'events':[],'status':'WRONG'}
-        return self.get_all_events_of_agend(agend_id,start_id)
+            return {'events':current_events,'status':'OK'}
+        return self.get_all_events_of_agend(agend_id,start_id,current_events)
     
     def _handle_get_event_by_id_request(self,**request):
         event_id = request['event_id']
@@ -689,5 +711,12 @@ class Node:
         if start_id == self._id:
             return {'status':'WRONG'}
         return self.store_event(event_id,agend_id,start_id)
+    
+    def _handle_find_agend_by_id_request(self,**request):
+        start_id = request['start']
+        agend_id = request['agend_id']
+        if start_id == self._id:
+            return {'status':'OK'}
+        return self.find_agend_by_id(agend_id,start_id)
     
     pass

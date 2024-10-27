@@ -23,4 +23,6 @@ class Operation(Enum):
     GET_EVENT_BY_ID = 19
     STORE_AGEND = 20
     STORE_EVENT = 21
+    FIND_AGEND_BY_ID = 22
+    FIND_GROUP_BY_ID = 23
     pass
