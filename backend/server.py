@@ -87,6 +87,10 @@ class Server(Node):
         self.delete_one_group(groupname,self._id)
         pass
     
+    def delete_agend(self,agend_id):
+        self.delete_one_agend(agend_id,self._id)
+        pass
+    
     def find_agend(self,agend_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
         file = open(f'{path}','r')

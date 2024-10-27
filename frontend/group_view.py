@@ -96,7 +96,7 @@ class AgendItem:
         self._agend_id = agend_id
         self._agend_name_label = tk.Label(root,text=agend_id)
         self._edit_btn = tk.Button(root,text='Edit',command=self.edit)
-        self._delete_btn = tk.Button(root,text='Delete')
+        self._delete_btn = tk.Button(root,text='Delete',command=self.delete)
         self._agend_name_label.pack(side=tk.TOP,pady=15,padx=5)
         self._edit_btn.pack(side=tk.TOP,pady=5,padx=5)
         self._delete_btn.pack(side=tk.TOP,pady=5,padx=5)
@@ -111,6 +111,11 @@ class AgendItem:
     def edit(self):
         self._master.withdraw()
         AgendView(self._master,self.server,self._agend_id)
+        pass
+    
+    def delete(self):
+        self.server.delete_agend(self._agend_id)
+        self.destroy()
         pass
     
     pass

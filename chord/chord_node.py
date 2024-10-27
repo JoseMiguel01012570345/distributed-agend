@@ -101,7 +101,8 @@ class Node:
             Operation.GET_ALL_EVENTS_OF_AGEND.value:self._handle_get_all_events_of_agend_request,
             Operation.GET_EVENT_BY_ID.value:self._handle_get_event_by_id_request,
             Operation.DELETE_ONE_EVENT.value:self._handle_delete_one_event_request,
-            Operation.DELETE_ONE_GROUP.value:self._handle_delet_one_group_request
+            Operation.DELETE_ONE_GROUP.value:self._handle_delet_one_group_request,
+            Operation.DELETE_ONE_AGEND.value:self._handle_delete_one_agend_request
         }
     
     def find_user(self,username,password,start_id):
@@ -136,6 +137,32 @@ class Node:
         except Exception as ex:
             return current_groups
         pass
+    
+    def delete_one_agend(self,agend_id,start_id):
+        path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+        file = open(f'{path}','r')
+        data = json.loads(file.read())
+        file.close()
+        
+        if agend_id in data['agends'].keys():
+            del data['agends'][agend_id]
+            pass
+        for group in data['groups'].keys():
+            if agend_id in data['groups'][group]['agends']:
+                data['groups'][group]['agends'].remove(agend_id)
+                pass
+            pass
+        
+        file = open(f'{path}','w')
+        file.write(json.dumps(data))
+        file.close()
+        if not self._successor.id == self._id:
+            try:
+                return self._successor.delete_one_agend(agend_id,start_id)
+            except Exception as ex:
+                return {'status':'OK'}
+            pass
+        return {'status':'OK'}
     
     def delete_one_group(self,groupname,start_id):
         path = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
@@ -750,5 +777,12 @@ class Node:
         if start_id == self._id:
             return {'status':'OK'}
         return self.delete_one_event(event_id,start_id)
+    
+    def _handle_delete_one_agend_request(self,**request):
+        agend_id = request['agend_id']
+        start_id = request['start']
+        if start_id == self._id:
+            return {'status':'OK'}
+        return self.delete_one_agend(agend_id,start_id)
     
     pass

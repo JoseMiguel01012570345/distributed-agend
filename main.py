@@ -15,6 +15,7 @@ port = int(args.port)
 ui = True if args.ui else False
 
 server = Server((ip,port),ui)
+# server = Server((ip,8001),True)
 
 while True:
     pass

@@ -26,4 +26,5 @@ class Operation(Enum):
     FIND_AGEND_BY_ID = 22
     FIND_GROUP_BY_ID = 23
     DELETE_ONE_EVENT = 24
+    DELETE_ONE_AGEND = 25
     pass
