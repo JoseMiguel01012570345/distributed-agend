@@ -316,10 +316,11 @@ class Node:
             try:
                 if self._predecessor and not self._predecessor.check_predecessor():
                     self.collect_predecessor_data()
-                    self._predecessor = None
+                    self.discard_predecessor_data()
                     if self._predecessor.id == self._leader.id:
                         self.start_leader_selection()
                         pass
+                    self._predecessor = None
                     pass
                 pass
             except Exception as ex:
@@ -365,53 +366,69 @@ class Node:
         pass
     
     def discard_predecessor_data(self):
-        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
-        os.remove(f'{file}')
+        try:
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
+            os.remove(f'{file}')
+            pass
+        except Exception as ex:
+            pass
         pass
     
     def discard_successor_data(self):
-        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
-        os.remove(f'{file}')
+        try:
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
+            os.remove(f'{file}')
+            pass
+        except Exception as ex:
+            pass
         pass
     
     def collect_predecessor_data(self):
-        my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
-        f = open(f'{my_file}','r')
-        data = json.loads(f.read())
-        f.close()
-        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
-        f = open(f'{file}','r')
-        data_ = json.loads(f.read())
-        f.close()
-        for field in data_.keys():
-            for d in data_[field].keys():
-                data[field][d] = data_[field][d]
+        try:
+            my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+            f = open(f'{my_file}','r')
+            data = json.loads(f.read())
+            f.close()
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._predecessor.id}.json')
+            f = open(f'{file}','r')
+            data_ = json.loads(f.read())
+            f.close()
+            for field in data_.keys():
+                for d in data_[field].keys():
+                    data[field][d] = data_[field][d]
+                    pass
                 pass
+            os.remove(f'{file}')
+            f = open(f'{my_file}','w')
+            f.write(json.dumps(data))
+            f.close()
             pass
-        os.remove(f'{file}')
-        f = open(f'{my_file}','w')
-        f.write(json.dumps(data))
-        f.close()
+        except Exception as ex:
+            pass
         pass
     
     def collect_successor_data(self):
-        my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
-        f = open(f'{my_file}','r')
-        data = json.loads(f.read())
-        f.close()
-        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
-        f = open(f'{file}','r')
-        data_ = json.loads(f.read())
-        f.close()
-        for field in data_.keys():
-            for d in data_[field].keys():
-                data[field][d] = data_[field][d]
+        try:
+            my_file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+            f = open(f'{my_file}','r')
+            data = json.loads(f.read())
+            f.close()
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._successor.id}.json')
+            f = open(f'{file}','r')
+            data_ = json.loads(f.read())
+            f.close()
+            for field in data_.keys():
+                for d in data_[field].keys():
+                    data[field][d] = data_[field][d]
+                    pass
                 pass
+            os.remove(f'{file}')
+            f = open(f'{my_file}','w')
+            f.write(json.dumps(data))
+            f.close()
             pass
-        os.remove(f'{file}')
-        f = open(f'{my_file}','w')
-        f.write(json.dumps(data))
-        f.close()
+        except Exception as ex:
+            pass
         pass
     
     def collect_data(self):
@@ -460,6 +477,7 @@ class Node:
                     temp = self._successor.predecessor
                     if temp and not temp.id == self._id:
                         if inbettwen(temp.id,self._id,self._successor.id):
+                            self.discard_successor_data()
                             self._successor = temp
                             pass
                         self._successor.notify(self._ref)
@@ -473,9 +491,11 @@ class Node:
                     pass
                 pass
             except Exception as ex:
+                self.collect_successor_data()
+                self.discard_successor_data()
                 start_select_leader = self._successor.id == self._leader.id
                 if self._predecessor and self._predecessor.check_predecessor():
-                    temp = self._predecessor.predecessor
+                    temp = self._predecessor
                     while temp and not inbettwen(self._id,self._predecessor.id,temp.id):
                         temp = temp.predecessor
                         pass
@@ -485,10 +505,12 @@ class Node:
                         pass
                     else:
                         self._successor = self._ref
+                        self._leader = self._ref
                         pass
                     pass
                 if not self._predecessor:
                     self._successor = self._ref
+                    self._leader = self._ref
                     pass
                 if start_select_leader:
                     self.start_leader_selection()
