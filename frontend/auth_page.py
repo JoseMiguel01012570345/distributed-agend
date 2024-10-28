@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from frontend.main_view import MainView
+
 class AuthPage(tk.Tk):
     
     def __init__(self,server,*args,**kwargs):
@@ -35,12 +36,17 @@ class AuthPage(tk.Tk):
         pass
     
     def _log_in(self):
-        if self.server.authenticate_user(self._username.get(),self._password.get()):
-            self.destroy()
-            MainView(self.server)
+        try:
+            if self.server.authenticate_user(self._username.get(),self._password.get()):
+                self.withdraw()
+                MainView(self.server,self)
+                pass
+            else:
+                messagebox.showwarning('No autenticado','El usuario no esta registrado')
+                pass
             pass
-        else:
-            messagebox.showwarning('No autenticado','El usuario no esta registrado')
+        except Exception as ex:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar a ningun servidor')
             pass
         pass
     
@@ -86,16 +92,19 @@ class CreateAccount(tk.Toplevel):
         pass
     
     def create_account(self):
-        
         if len(self._username.get()) > 0 and self._password.get() == self._password_confirmation.get():
-            self._root.server.create_user(self._username.get(),self._password.get())
-            self.destroy()
-            self._root.deiconify()
+            response = self._root.server.create_user(self._username.get(),self._password.get())
+            if response:
+                self.destroy()
+                self._root.deiconify()
+                pass
+            else:
+                messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+                pass
             pass
         else:
             messagebox.showwarning('Invalid data','Username most be filled and password most matchs')
             pass
-        
         pass
-    
+        
     pass

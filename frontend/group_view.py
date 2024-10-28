@@ -1,5 +1,6 @@
 import tkinter as tk
 from frontend.agend_view import AgendView
+from tkinter import messagebox
 
 class GroupView(tk.Toplevel):
     
@@ -20,7 +21,13 @@ class GroupView(tk.Toplevel):
         self._View = tk.Frame(self._Frame)
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._agends = self.server.get_agends_by_group(self._groupname)
-        self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
+        self._agends_items = []
+        if self._agends:
+            self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         self.protocol('WM_DELETE_WINDOW',self.cancel)
@@ -39,12 +46,17 @@ class GroupView(tk.Toplevel):
     
     def update_view(self):
         self._agends = self.server.get_agends_by_group(self._groupname)
-        for item in self._agends_items:
-            item.destroy()
+        if self._agends:
+            for item in self._agends_items:
+                item.destroy()
+                pass
+            self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
+            self._View.update_idletasks()
+            self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
             pass
-        self._agends_items = [AgendItem(self._View,self,self.server,agend_id) for agend_id in self._agends['agends']]
-        self._View.update_idletasks()
-        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     pass
@@ -79,10 +91,14 @@ class CreateAgendView(tk.Toplevel):
         pass
     
     def create_agend(self):
-        self.server.create_agend(self._agend_name.get(),self._groupname)
-        self.destroy()
-        self._root.deiconify()
-        self._root.update_view()
+        if self.server.create_agend(self._agend_name.get(),self._groupname):
+            self.destroy()
+            self._root.deiconify()
+            self._root.update_view()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     pass
@@ -114,8 +130,12 @@ class AgendItem:
         pass
     
     def delete(self):
-        self.server.delete_agend(self._agend_id)
-        self.destroy()
+        if self.server.delete_agend(self._agend_id):
+            self.destroy()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     pass

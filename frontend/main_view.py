@@ -1,11 +1,13 @@
 import tkinter as tk
 import time
 from frontend.group_view import GroupView
+from tkinter import messagebox
 
-class MainView(tk.Tk):
+class MainView(tk.Toplevel):
     
-    def __init__(self,server,*args,**kwargs):
+    def __init__(self,server,root,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self._root = root
         self.server = server
         self.title('Main View')
         self.geometry('1600x800')
@@ -17,12 +19,26 @@ class MainView(tk.Tk):
         self._View = tk.Frame(self._Frame)
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._groups = server.get_all_groups()
-        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+        self._groups_items = []
+        if self._groups:
+            self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
         self._create_group_btn = tk.Button(self,text='Create group',command=self.create_group)
         self._create_group_btn.pack(side=tk.BOTTOM,pady=10,padx=10)
+        self._log_out_btn = tk.Button(self,text='log out',command=self.cancel)
+        self._log_out_btn.pack(side=tk.TOP,pady=10,padx=10)
+        self.protocol('WM_DELETE_WINDOW',self.cancel)
         self.mainloop()
+        pass
+    
+    def cancel(self):
+        self.destroy()
+        self._root.deiconify()
         pass
     
     def create_group(self):
@@ -32,12 +48,17 @@ class MainView(tk.Tk):
     
     def update_view(self):
         self._groups = self.server.get_all_groups()
-        for group in self._groups_items:
-            group.destroy()
+        if self._groups:
+            for group in self._groups_items:
+                group.destroy()
+                pass
+            self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
+            self._View.update_idletasks()
+            self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
             pass
-        self._groups_items = [GroupItem(group,self._groups[group]['agends'],self._View,self,self.server) for group in self._groups.keys()]
-        self._View.update_idletasks()
-        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     pass
@@ -65,10 +86,14 @@ class CreateGroupView(tk.Toplevel):
         pass
     
     def create_group(self):
-        self.server.create_group(self._groupname.get())
-        self.destroy()
-        self._root.deiconify()
-        self._root.update_view()
+        if self.server.create_group(self._groupname.get()):
+            self.destroy()
+            self._root.deiconify()
+            self._root.update_view()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     def cancel(self):
@@ -101,8 +126,12 @@ class GroupItem:
         pass
     
     def delete(self):
-        self.server.delete_group(self._name)
-        self._master.update_view()
+        if self.server.delete_group(self._name):
+            self.destroy()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     def edit(self):

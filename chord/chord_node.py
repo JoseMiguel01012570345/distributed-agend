@@ -506,12 +506,15 @@ class Node:
         pass
     
     def collect_data(self):
-        file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
-        f = open(f'{file}','r')
-        my_data = json.loads(f.read())
-        f.close()
-        data = {self._id:my_data}
-        return data
+        try:
+            file = self._path.joinpath(f'data_{self._id}').joinpath(f'{self._id}.json')
+            f = open(f'{file}','r')
+            my_data = json.loads(f.read())
+            f.close()
+            data = {self._id:my_data}
+            return data
+        except Exception as ex:
+            return {}
     
     def replicate_data(self):
         while True:
@@ -605,21 +608,7 @@ class Node:
                 conn,_ = server.accept()
                 json_data = conn.recv(BUFFER_SIZE)
                 data = get_data_from_json(json_data)
-                operation = data['operation']
-                data_ = data['data']
-                if operation in self._request_handlers.keys():
-                    if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value,Operation.DELETE_ONE_GROUP.value]:
-                        response = self._request_handlers[operation](**data_)
-                        json_response = set_json_data_to_send(response)
-                        conn.sendall(json_response)
-                        pass
-                    else:
-                        response = {'response':'OK'}
-                        json_response = set_json_data_to_send(response)
-                        conn.sendall(json_response)
-                        self._request_handlers[operation](**data_)
-                        pass
-                    pass
+                self.handle_request(conn,**data)
                 conn.close()
                 pass
             except Exception as ex:
@@ -627,6 +616,24 @@ class Node:
             
             pass
         
+        pass
+    
+    def handle_request(self,connection,**request):
+        operation = request['operation']
+        data_ = request['data']
+        if operation in self._request_handlers.keys():
+            if not operation in [Operation.SELECT_LEADER.value,Operation.NOTIFY_LEADER.value,Operation.DELETE_ONE_GROUP.value]:
+                response = self._request_handlers[operation](**data_)
+                json_response = set_json_data_to_send(response)
+                connection.sendall(json_response)
+                pass
+            else:
+                response = {'response':'OK'}
+                json_response = set_json_data_to_send(response)
+                connection.sendall(json_response)
+                self._request_handlers[operation](**data_)
+                pass
+            pass
         pass
     
     def _handle_find_successor_request(self,**request):

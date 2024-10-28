@@ -1,5 +1,6 @@
 import tkinter as tk
 from frontend.activity_view import ActivityView
+from tkinter import messagebox
 
 class AgendView(tk.Toplevel):
     
@@ -19,11 +20,16 @@ class AgendView(tk.Toplevel):
         self._Frame.create_window((600,0),window=self._View,anchor=tk.NW)
         self._events = self.server.get_events(self._agend_id)
         self._event_items = []
-        for event in self._events['events']:
-            _event = self.server.get_event(event)
-            if 'date' in _event.keys() and 'description' in _event.keys():
-                self._event_items.append(ActivityItem(self._View,self,self.server,event))
+        if self._events:
+            for event in self._events['events']:
+                _event = self.server.get_event(event)
+                if 'date' in _event.keys() and 'description' in _event.keys():
+                    self._event_items.append(ActivityItem(self._View,self,self.server,event))
+                    pass
                 pass
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
             pass
         self._View.update_idletasks()
         self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
@@ -47,18 +53,28 @@ class AgendView(tk.Toplevel):
     
     def update_view(self):
         self._events = self.server.get_events(self._agend_id)
-        for event in self._event_items:
-            event.destroy()
-            pass
-        self._event_items = []
-        for event in self._events['events']:
-            _event = self.server.get_event(event)
-            if 'date' in _event.keys() and 'description' in _event.keys():
-                self._event_items.append(ActivityItem(self._View,self,self.server,event))
+        if self._events:
+            for event in self._event_items:
+                event.destroy()
                 pass
+            self._event_items = []
+            for event in self._events['events']:
+                _event = self.server.get_event(event)
+                if _event:
+                    if 'date' in _event.keys() and 'description' in _event.keys():
+                        self._event_items.append(ActivityItem(self._View,self,self.server,event))
+                        pass
+                    pass
+                else:
+                    messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+                    pass
+                pass
+            self._View.update_idletasks()
+            self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
             pass
-        self._View.update_idletasks()
-        self._Frame.configure(scrollregion=self._Frame.bbox(tk.ALL))
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     pass
@@ -89,8 +105,12 @@ class ActivityItem:
         pass
     
     def delete(self):
-        self.server.delete_event(self._activity_id)
-        self.destroy()
+        if self.server.delete_event(self._activity_id):
+            self.destroy()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
         
     pass

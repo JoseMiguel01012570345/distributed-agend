@@ -1,6 +1,6 @@
 import tkinter as tk
 from time import gmtime
-
+from tkinter import messagebox
 class ActivityView(tk.Toplevel):
     
     def __init__(self,root,server,agend_id,*args,**kwargs):
@@ -90,10 +90,14 @@ class ActivityView(tk.Toplevel):
         return self._description_textbox.get('1.0',tk.END)
     
     def create_activity(self):
-        self.server.create_event(self._agend_id,self.date,self.description)
-        self.destroy()
-        self._root.deiconify()
-        self._root.update_view()
+        if self.server.create_event(self._agend_id,self.date,self.description):
+            self.destroy()
+            self._root.deiconify()
+            self._root.update_view()
+            pass
+        else:
+            messagebox.showwarning('CONNECTION ERROR','No se ha podido conectar al servidor')
+            pass
         pass
     
     def _init_time(self):
